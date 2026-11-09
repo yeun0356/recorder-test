@@ -727,7 +727,10 @@
     return new Promise(function (resolve, reject) {
       if (!blob || !blob.size) { resolve(''); return; }
       var r = new FileReader();
-      r.onload = function () { resolve(String(r.result).split(',')[1]); };
+            r.onload = function () {
+        var dataUrl = String(r.result);
+        resolve(dataUrl.slice(dataUrl.indexOf('base64,') + 7));
+      };
       r.onerror = function () { reject(new Error('영상을 읽지 못했어요.')); };
       r.readAsDataURL(blob);
     });
@@ -748,7 +751,7 @@
           운지점수: result.운지점수,
           자동피드백: result.자동피드백,
           영상: b64,
-          영상종류: videoBlob ? videoBlob.type : ''
+          영상종류: videoBlob ? videoBlob.type.split(';')[0] : ''
         });
       })
       .then(function () {
