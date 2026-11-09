@@ -2,169 +2,540 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>카메라·마이크 시험</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>리코더 연습하기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #FFF9E8; --card: #FFFFFF; --ink: #3A2312; --ink-soft: #7A5638;
-    --primary: #6B3E1F; --on-primary: #FFFFFF; --line: #EAD7B4;
-    --ok: #2E7D4F; --ok-bg: #E4F4EA; --err: #B8392E; --err-bg: #FCEBE8; --wait-bg: #F6EEDC;
+    --primary: #6B3E1F; --primary-press: #522E15; --on-primary: #FFFFFF;
+    --accent: #F2C230; --highlight: #FBE08C; --line: #EAD7B4; --field: #FFFCF3;
+    --ok: #2E7D4F; --ok-bg: #E4F4EA; --err: #B8392E; --err-bg: #FCEBE8;
+    --font-cute: "Jua", "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg: #1F1610; --card: #2A1F17; --ink: #F5EAD6; --ink-soft: #CDB696;
-      --primary: #E2B07A; --on-primary: #2A1A0C; --line: #4A3826;
-      --ok: #6FD39A; --ok-bg: #173A27; --err: #F2948A; --err-bg: #3E1E1A; --wait-bg: #32251B;
+      --primary: #E2B07A; --primary-press: #CC9A63; --on-primary: #2A1A0C;
+      --accent: #E8B92A; --highlight: #5C4513; --line: #4A3826; --field: #32251B;
+      --ok: #6FD39A; --ok-bg: #173A27; --err: #F2948A; --err-bg: #3E1E1A;
     }
   }
-  * { box-sizing: border-box; }
+  :root[data-theme="dark"] {
+    --bg: #1F1610; --card: #2A1F17; --ink: #F5EAD6; --ink-soft: #CDB696;
+    --primary: #E2B07A; --primary-press: #CC9A63; --on-primary: #2A1A0C;
+    --accent: #E8B92A; --highlight: #5C4513; --line: #4A3826; --field: #32251B;
+    --ok: #6FD39A; --ok-bg: #173A27; --err: #F2948A; --err-bg: #3E1E1A;
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
-    font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
-    font-size: 17px; line-height: 1.5; word-break: keep-all;
+    font-family: "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+    font-size: 19px; line-height: 1.5; word-break: keep-all;
   }
-  main { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
-  h1 { margin: 0 0 6px; font-size: 26px; text-align: center; }
-  .sub { margin: 0 0 18px; text-align: center; color: var(--ink-soft); font-size: 15px; }
+  main { max-width: 560px; margin: 0 auto; padding: 10px 10px 28px; }
+  section[hidden] { display: none; }
+
+  /* 머리글 */
+  .head { text-align: center; margin-bottom: 12px; }
+  .title-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .head h1 {
+    margin: 0; padding: 0 8px;
+    font-family: var(--font-cute); font-weight: 400; font-size: clamp(30px, 9.5vw, 42px); line-height: 1.25;
+    white-space: nowrap;
+    color: var(--primary);
+    background: linear-gradient(transparent 60%, var(--highlight) 60%, var(--highlight) 92%, transparent 92%);
+  }
+  .head p { margin: 6px 0 0; color: var(--ink-soft); font-size: 18px; }
+  .sticker { flex-shrink: 0; width: 46px; height: 60px; filter: drop-shadow(0 2px 2px rgba(58,35,18,.25)); transform: rotate(-14deg); }
+  .sticker svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+  .gap { height: 10px; }
+  label.field-label {
+    display: block; margin-bottom: 4px;
+    font-family: var(--font-cute); font-size: 21px;
+  }
+  input[type="text"], input[type="password"] {
+    width: 100%; min-height: 58px; padding: 12px 14px;
+    font: inherit; font-size: 19px; color: var(--ink);
+    background: var(--field); border: 2px solid var(--line); border-radius: 10px;
+  }
+  input:focus, button:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+  .hint { margin: 6px 0 0; font-size: 16px; color: var(--ink-soft); overflow-wrap: anywhere; }
+  .hint:empty { display: none; }
+
+  .guide { margin: 0; padding: 0; list-style: none; }
+  .guide li { display: flex; gap: 10px; align-items: flex-start; padding: 3px 0; }
+  .guide li::before {
+    content: ""; flex-shrink: 0; width: 12px; height: 12px; margin-top: 9px;
+    border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 3px var(--highlight);
+  }
+  .ready-line { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px dashed var(--line); font-size: 17px; }
+  .ready-line:first-of-type { border-top: 0; }
+  .ready-line b { font-weight: 400; font-family: var(--font-cute); color: var(--ink-soft); }
+  .ready-line b.ok { color: var(--ok); }
+  .ready-line b.err { color: var(--err); }
 
   .btn {
-    display: block; width: 100%; min-height: 52px; border: 0; border-radius: 12px;
+    display: block; width: 100%; min-height: 62px; border: 0; border-radius: 14px;
     background: var(--primary); color: var(--on-primary);
-    font: inherit; font-size: 18px; font-weight: 700; cursor: pointer;
+    font-family: var(--font-cute); font-size: 25px; cursor: pointer;
   }
-  .btn:disabled { opacity: 0.5; }
-  .btn.line { background: var(--card); color: var(--primary); border: 2px solid var(--primary); margin-top: 10px; }
-
-  .status { margin: 18px 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); }
-  .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--line); }
-  .row:first-child { border-top: 0; }
-  .badge { padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 15px; background: var(--wait-bg); color: var(--ink-soft); white-space: nowrap; }
-  .badge.ok { background: var(--ok-bg); color: var(--ok); }
-  .badge.err { background: var(--err-bg); color: var(--err); }
-
-  .stage { position: relative; border-radius: 14px; overflow: hidden; background: #000; aspect-ratio: 3 / 4; max-height: 60vh; margin: 0 auto; }
-  .stage[hidden] { display: none; }
-  video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
-  .note {
-    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
-    min-width: 140px; padding: 8px 18px; border-radius: 16px;
-    background: rgba(0, 0, 0, 0.6); color: #fff; text-align: center;
+  .btn:active { background: var(--primary-press); }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn.line { background: var(--card); color: var(--primary); border: 2px solid var(--primary); }
+  .btn + .btn { margin-top: 8px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    min-height: 48px; margin-top: 10px; padding: 0 20px;
+    border: 2px solid var(--primary); border-radius: 999px;
+    background: var(--card); color: var(--primary);
+    font-family: var(--font-cute); font-size: 20px; cursor: pointer;
   }
-  .note b { display: block; font-size: 44px; line-height: 1.1; }
-  .note span { font-size: 14px; opacity: 0.85; }
+  .pill::before {
+    content: ""; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 0 3px var(--highlight);
+  }
+  .pill:active { background: var(--field); }
+  .msg { margin: 10px 0 0; padding: 12px 14px; border-radius: 10px; font-weight: 700; background: var(--err-bg); color: var(--err); white-space: pre-wrap; }
+  .msg:empty { display: none; }
 
-  .log { margin-top: 16px; padding: 12px 14px; border-radius: 12px; background: var(--err-bg); color: var(--err); font-size: 15px; white-space: pre-wrap; }
-  .log:empty { display: none; }
+  /* 연주 화면 */
+  .stage {
+    position: relative; overflow: hidden; border-radius: 18px;
+    background: #2B1D14; aspect-ratio: 3 / 4; max-height: 78vh; margin: 0 auto;
+  }
+  .stage video, .stage canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    transform: scaleX(-1);
+  }
+  .top-bar {
+    position: absolute; left: 10px; right: 10px; top: 10px;
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  }
+  .chip {
+    padding: 6px 16px; border-radius: 999px; background: rgba(43,29,20,.72); color: #FFF7E6;
+    font-family: var(--font-cute); font-size: 23px;
+  }
+  .chip em { font-style: normal; color: var(--accent); font-size: 34px; }
+  .big-note {
+    position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+    min-width: 180px; padding: 6px 24px; border-radius: 24px; text-align: center;
+    background: rgba(43,29,20,.72); color: #FFF7E6;
+    font-family: var(--font-cute); font-size: 86px; line-height: 1.1;
+    transition: background-color .15s;
+  }
+  .big-note.ok { background: rgba(46,125,79,.92); }
+  .big-note.bad { background: rgba(184,57,46,.92); }
+  .big-note small { display: block; font-size: 18px; opacity: .9; }
+
+  /* 리코더 운지 그림 */
+  .fingering {
+    position: absolute; right: 10px; top: 60px;
+    width: 66px; padding: 10px 0 12px; border-radius: 33px;
+    background: rgba(255,249,232,.9);
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+  }
+  .fingering .hole {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 3px solid #6B3E1F; background: transparent;
+  }
+  .fingering .hole.down { background: #6B3E1F; }
+  .fingering .hole.wrong { box-shadow: 0 0 0 4px #E5483A; }
+  .fingering .split { width: 30px; height: 4px; border-radius: 2px; background: #C9A57A; margin: 2px 0; }
+  .fingering .cap { font-family: var(--font-cute); font-size: 17px; color: #6B3E1F; line-height: 1; }
+
+  .calib {
+    position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
+    background: rgba(43,29,20,.55); color: #FFF7E6; padding: 20px;
+    font-family: var(--font-cute); font-size: 29px; line-height: 1.4;
+  }
+  .calib[hidden] { display: none; }
+  .calib b { display: block; font-weight: 400; font-size: 92px; color: var(--accent); }
+
+  .progress { height: 14px; margin: 10px 0; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .play-note { margin: 0 0 8px; text-align: center; color: var(--ink-soft); font-size: 17px; }
+
+  /* 결과 */
+  .scores { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .score {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 10px 8px; text-align: center;
+  }
+  .score span { display: block; font-family: var(--font-cute); font-size: 22px; color: var(--ink-soft); }
+  .score b { display: block; font-weight: 400; font-family: var(--font-cute); font-size: 66px; line-height: 1.05; color: var(--primary); }
+  .score small { font-size: 16px; color: var(--ink-soft); }
+  .auto-fb { margin: 0; white-space: pre-wrap; font-size: 20px; }
+  .done-mark { font-size: 64px; text-align: center; line-height: 1; margin-bottom: 8px; }
+
+  @media (prefers-reduced-motion: reduce) { .big-note, .progress i { transition: none; } }
 </style>
 </head>
 <body>
 <main>
-  <h1>카메라·마이크 시험</h1>
-  <p class="sub">버튼을 누르고 권한을 허용한 뒤, 리코더로 한 음을 길게 불어보세요.</p>
 
-  <button class="btn" id="btn-start">카메라·마이크 켜기</button>
-  <button class="btn line" id="btn-stop" hidden>끄기</button>
+  <!-- 1. 준비 -->
+  <section id="sec-ready">
+    <div class="head">
+      <div class="title-row">
+        <div class="sticker" aria-hidden="true"><svg viewBox="0 0 60 110">
+          <g stroke="#FFFFFF" stroke-width="7" stroke-linejoin="round" paint-order="stroke">
+            <path d="M22 4 h16 l2 16 h-20 z" fill="#FBF1D6"/>
+            <rect x="21" y="18" width="18" height="10" rx="2" fill="#6B3E1F"/>
+            <rect x="22" y="27" width="16" height="58" rx="3" fill="#FBF1D6"/>
+            <rect x="21" y="60" width="18" height="6" rx="2" fill="#6B3E1F"/>
+            <path d="M22 84 h16 l5 18 h-26 z" fill="#6B3E1F"/>
+          </g>
+          <rect x="26" y="9" width="8" height="3" rx="1.5" fill="#3A2312"/>
+          <circle cx="30" cy="34" r="2.6" fill="#2B1D14"/><circle cx="30" cy="42" r="2.6" fill="#2B1D14"/>
+          <circle cx="30" cy="50" r="2.6" fill="#2B1D14"/><circle cx="30" cy="72" r="2.6" fill="#2B1D14"/>
+          <circle cx="30" cy="79" r="2.2" fill="#2B1D14"/>
+          <circle cx="47" cy="22" r="3" fill="#F2C230"/><circle cx="12" cy="44" r="2.2" fill="#F2C230"/>
+        </svg></div>
+        <h1>리코더 연습하기</h1>
+      </div>
+      <p id="song-title">곡을 불러오는 중…</p>
+      <button class="pill" id="btn-my-feedback">지난 피드백 보기</button>
+    </div>
 
-  <div class="status">
-    <div class="row"><span>틀(iframe)이 카메라 허용</span><span class="badge" id="st-policy">확인 중</span></div>
-    <div class="row"><span>카메라</span><span class="badge" id="st-cam">대기</span></div>
-    <div class="row"><span>마이크</span><span class="badge" id="st-mic">대기</span></div>
-    <div class="row"><span>소리 분석</span><span class="badge" id="st-pitch">대기</span></div>
-  </div>
+    <div class="panel">
+      <label class="field-label" for="in-name">이름</label>
+      <input type="text" id="in-name" placeholder="예: 김하늘" autocomplete="off">
+      <div class="gap"></div>
+      <label class="field-label" for="in-pw">비밀번호</label>
+      <input type="password" id="in-pw" placeholder="4자 이상" autocomplete="off">
+      <p class="hint">내 피드백을 볼 때 필요해요. 다른 사이트에서 쓰는 비밀번호는 쓰지 마세요.</p>
+    </div>
 
-  <div class="stage" id="stage" hidden>
-    <video id="video" autoplay playsinline muted></video>
-    <div class="note"><b id="note-name">–</b><span id="note-hz">소리를 기다리는 중</span></div>
-  </div>
+    <div class="gap"></div>
 
-  <p class="log" id="log"></p>
+    <div class="panel">
+      <label class="field-label">찍기 전에</label>
+      <ul class="guide">
+        <li>휴대폰을 거치대에 세우고, 정면에서 찍어요.</li>
+        <li>두 손과 리코더가 화면에 크게 나오게 해요.</li>
+        <li>밝고 조용한 곳에서 불어요.</li>
+      </ul>
+      <div class="gap"></div>
+      <div class="ready-line"><span>곡 정보</span><b id="st-song">불러오는 중</b></div>
+      <div class="ready-line"><span>손가락 인식</span><b id="st-hand">준비 중</b></div>
+      <p class="hint" id="st-hand-why"></p>
+    </div>
+
+    <div class="gap"></div>
+    <button class="btn" id="btn-start">연주 시작</button>
+    <p class="msg" id="msg-ready" role="status"></p>
+  </section>
+
+  <!-- 2. 연주 -->
+  <section id="sec-play" hidden>
+    <div class="stage" id="stage">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="overlay"></canvas>
+
+      <div class="top-bar">
+        <span class="chip">다음 음 <em id="next-note">–</em></span>
+        <span class="chip" id="count">0 / 0</span>
+      </div>
+
+      <div class="fingering" id="fingering" aria-label="다음 음 운지"></div>
+
+      <div class="big-note" id="big-note">–<small id="big-sub">소리를 기다려요</small></div>
+
+      <div class="calib" id="calib" hidden>
+        <div><span id="calib-text">모든 구멍을 막고<br>기다려요</span><b id="calib-num">3</b></div>
+      </div>
+    </div>
+
+    <div class="progress"><i id="progress-bar"></i></div>
+    <p class="play-note" id="play-note">마지막 음까지 불면 자동으로 끝나요.</p>
+    <button class="btn line" id="btn-finish">끝내기</button>
+  </section>
+
+  <!-- 3. 결과 -->
+  <section id="sec-result" hidden>
+    <div class="head">
+      <div class="title-row"><h1>연주 결과</h1></div>
+    </div>
+    <div class="scores">
+      <div class="score"><span>음정</span><b id="score-pitch">0</b><small id="score-pitch-sub"></small></div>
+      <div class="score"><span>손가락</span><b id="score-finger">0</b><small id="score-finger-sub"></small></div>
+    </div>
+    <div class="panel">
+      <label class="field-label">자동 피드백</label>
+      <p class="auto-fb" id="auto-fb"></p>
+      <p class="hint">선생님이 확인한 뒤 '내 피드백'에서 볼 수 있어요.</p>
+    </div>
+    <div class="gap"></div>
+    <button class="btn" id="btn-submit">제출</button>
+    <button class="btn line" id="btn-retry">다시 하기</button>
+    <p class="msg" id="msg-result" role="status"></p>
+  </section>
+
+  <!-- 4. 제출 완료 -->
+  <section id="sec-done" hidden>
+    <div class="head">
+      <div class="done-mark" aria-hidden="true">🎶</div>
+      <div class="title-row"><h1>제출 완료!</h1></div>
+      <p id="done-text">선생님이 확인하면 피드백을 볼 수 있어요.</p>
+    </div>
+    <button class="btn" id="btn-go-feedback">내 피드백 보러 가기</button>
+    <button class="btn line" id="btn-again">처음으로</button>
+  </section>
+
 </main>
 
 <script>
-  var NAMES = ['도', '도#', '레', '레#', '미', '파', '파#', '솔', '솔#', '라', '라#', '시'];
-  var stream = null, audioCtx = null, timer = null;
+  /* ================= 조절값 (시험하면서 바꿀 수 있어요) ================= */
+  var STABLE_MS = 200;        // 같은 음이 이만큼 이어지면 한 음으로 판단
+  var GAP_MS = 60;            // 이만큼 조용하면 음이 끊긴 것으로 판단 (같은 음 반복 구분)
+  var SILENCE_RMS = 0.012;    // 이보다 작은 소리는 무시
+  var LIFT_THRESHOLD = 0.35;  // 손가락이 기준 자세에서 이만큼 움직이면 '들림'
+  var CALIB_MS = 3000;        // 기준 자세(모든 구멍 막기) 재는 시간
 
-  function badge(id, text, type) {
-    var el = document.getElementById(id);
-    el.textContent = text;
-    el.className = 'badge' + (type ? ' ' + type : '');
-  }
-  function log(text) { document.getElementById('log').textContent = text; }
+  /* ================= GAS 연결 ================= */
+  // GAS 웹앱 주소(끝이 /exec)를 따옴표 안에 넣으세요
+  var GAS_URL = 'https://script.google.com/macros/s/여기에_주소/exec';
 
-  // 1) 이 페이지를 감싼 틀이 카메라·마이크를 허용하는지 (크롬 계열에서만 확인 가능)
-  (function checkPolicy() {
-    var fp = document.featurePolicy || document.permissionsPolicy;
-    if (!fp || !fp.allowsFeature) { badge('st-policy', '알 수 없음'); return; }
-    var cam = fp.allowsFeature('camera'), mic = fp.allowsFeature('microphone');
-    if (cam && mic) badge('st-policy', '허용', 'ok');
-    else badge('st-policy', '막힘 (' + (cam ? '' : '카메라 ') + (mic ? '' : '마이크') + ')', 'err');
-  })();
-
-  document.getElementById('btn-start').addEventListener('click', start);
-  document.getElementById('btn-stop').addEventListener('click', stop);
-
-  function start() {
-    log('');
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      badge('st-cam', '지원 안 함', 'err'); badge('st-mic', '지원 안 함', 'err');
-      log('이 브라우저는 카메라 사용을 지원하지 않아요. 크롬이나 사파리로 열어보세요.');
-      return;
-    }
-    badge('st-cam', '요청 중'); badge('st-mic', '요청 중');
-
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } })
-      .then(function (s) {
-        stream = s;
-        badge('st-cam', s.getVideoTracks().length ? '켜짐' : '없음', s.getVideoTracks().length ? 'ok' : 'err');
-        badge('st-mic', s.getAudioTracks().length ? '켜짐' : '없음', s.getAudioTracks().length ? 'ok' : 'err');
-        var video = document.getElementById('video');
-        video.srcObject = s;
-        document.getElementById('stage').hidden = false;
-        document.getElementById('btn-start').hidden = true;
-        document.getElementById('btn-stop').hidden = false;
-        startPitch(s);
-      })
-      .catch(function (err) {
-        badge('st-cam', '실패', 'err'); badge('st-mic', '실패', 'err');
-        var hint = '';
-        if (err.name === 'NotAllowedError') hint = '권한을 거부했거나, 앱을 감싼 틀이 카메라를 막고 있어요. 위 "틀이 카메라 허용"이 "막힘"이면 틀 문제입니다.';
-        else if (err.name === 'NotFoundError') hint = '카메라나 마이크를 찾지 못했어요.';
-        else if (err.name === 'NotReadableError') hint = '다른 앱이 카메라를 쓰고 있어요. 다른 앱을 닫고 다시 해보세요.';
-        log('오류: ' + err.name + '\n' + (err.message || '') + (hint ? '\n\n' + hint : ''));
+  function callGas(body) {
+    return fetch(GAS_URL, { method: 'POST', body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.error || '알 수 없는 오류');
+        return res.data;
       });
   }
 
-  function startPitch(s) {
-    try {
-      var AC = window.AudioContext || window.webkitAudioContext;
-      audioCtx = new AC();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      var src = audioCtx.createMediaStreamSource(s);
-      var analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 2048;
-      src.connect(analyser);
-      var buf = new Float32Array(analyser.fftSize);
-      badge('st-pitch', '작동 중', 'ok');
+  /* ================= 기본 정보 ================= */
+  var FINGERS = ['왼손 검지','왼손 중지','왼손 약지','오른손 검지','오른손 중지','오른손 약지','오른손 새끼'];
+  var NOTE_MIDI = { '도': 72, '레': 74, '미': 76, '파': 77, '솔': 79, '라': 81, '시': 83, '높은도': 84, '높은레': 86 };
+  var SEMI = ['도','도#','레','레#','미','파','파#','솔','솔#','라','라#','시'];
+  function midiName(m) {
+    for (var k in NOTE_MIDI) if (NOTE_MIDI[k] === m) return k;
+    return (m >= 84 ? '높은' : '') + SEMI[((m % 12) + 12) % 12];
+  }
 
-      timer = setInterval(function () {
-        analyser.getFloatTimeDomainData(buf);
-        var hz = detectPitch(buf, audioCtx.sampleRate);
-        var nameEl = document.getElementById('note-name');
-        var hzEl = document.getElementById('note-hz');
-        if (hz < 0 || hz < 200 || hz > 2600) {
-          nameEl.textContent = '–';
-          hzEl.textContent = '소리를 기다리는 중';
-          return;
-        }
-        var n = 12 * Math.log2(hz / 440) + 69;
-        var r = Math.round(n);
-        var cents = Math.round((n - r) * 100);
-        nameEl.textContent = NAMES[((r % 12) + 12) % 12];
-        hzEl.textContent = Math.round(hz) + 'Hz · ' + (cents === 0 ? '정확' : (cents > 0 ? '+' : '') + cents + '센트');
-      }, 120);
-    } catch (e) {
-      badge('st-pitch', '실패', 'err');
-      log('소리 분석 오류: ' + e.message);
+  var song = [], fingering = {};
+  var $ = function (id) { return document.getElementById(id); };
+
+  function show(id) {
+    ['sec-ready','sec-play','sec-result','sec-done'].forEach(function (s) { $(s).hidden = s !== id; });
+    window.scrollTo(0, 0);
+  }
+  function setStatus(id, text, type) { var el = $(id); el.textContent = text; el.className = type || ''; }
+
+  /* ================= 1. 준비: 곡 불러오기 ================= */
+  function loadSong() {
+    if (GAS_URL.indexOf('여기에_주소') > -1) {
+      $('song-title').textContent = '곡을 불러오지 못했어요';
+      setStatus('st-song', 'GAS_URL을 넣어주세요', 'err');
+      return;
     }
+    callGas({ action: 'getSong' })
+      .then(function (d) {
+        song = d.음;
+        fingering = {};
+        Object.keys(d.운지).forEach(function (k) {
+          fingering[k] = d.운지[k].split('').map(function (c) { return c === 'O'; });
+        });
+        $('song-title').textContent = d.제목;
+        setStatus('st-song', song.length + '개 음 준비됨', 'ok');
+      })
+      .catch(function (err) {
+        $('song-title').textContent = '곡을 불러오지 못했어요';
+        setStatus('st-song', '불러오지 못함', 'err');
+        $('msg-ready').textContent = '곡 정보를 불러오지 못했어요.\n' + err.message;
+      });
+  }
+  loadSong();
+
+  /* ================= 손가락 인식 준비 (MediaPipe) ================= */
+  var handLandmarker = null;
+  (function loadHands() {
+    import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs')
+      .then(function (vision) {
+        return vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm')
+          .then(function (files) {
+            var opts = function (delegate) {
+              return {
+                baseOptions: {
+                  modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+                  delegate: delegate
+                },
+                runningMode: 'VIDEO', numHands: 2
+              };
+            };
+            return vision.HandLandmarker.createFromOptions(files, opts('GPU'))
+              .catch(function () { return vision.HandLandmarker.createFromOptions(files, opts('CPU')); });
+          });
+      })
+      .then(function (hl) { handLandmarker = hl; setStatus('st-hand', '준비됨', 'ok'); })
+      .catch(function (err) {
+        var why = (err && err.message) ? err.message : String(err);
+        setStatus('st-hand', '불러오지 못함 (음정만 확인)', 'err');
+        $('st-hand-why').textContent = '이유: ' + why.slice(0, 120);
+      });
+  })();
+
+  /* ================= 연주 상태 ================= */
+  var phase = 'idle';          // 'calib' 기준 자세 / 'play' 연주 / 'idle'
+  var stream = null, audioCtx = null, analyser = null, pitchBuf = null;
+  var pitchTimer = null, rafId = null, recorder = null, chunks = [], videoBlob = null;
+  var idx = 0, attempts = [];
+  var cand = null, curMidi = null, silentSince = 0;
+  var fingerEnabled = false, calibSamples = [], baseline = null, fingerState = null, lastHandT = 0;
+  var calibStart = 0;
+
+  /* ================= 연주 시작 ================= */
+  $('btn-start').addEventListener('click', begin);
+
+  function checkInputs() {
+    var name = $('in-name').value.trim(), pw = $('in-pw').value.trim();
+    if (!name) { $('msg-ready').textContent = '이름을 입력하세요.'; $('in-name').focus(); return false; }
+    if (pw.length < 4) { $('msg-ready').textContent = '비밀번호는 4자 이상으로 정하세요.'; $('in-pw').focus(); return false; }
+    if (!song.length) { $('msg-ready').textContent = '곡 정보를 아직 불러오지 못했어요. 잠시 뒤 다시 눌러주세요.'; return false; }
+    $('msg-ready').textContent = '';
+    return true;
+  }
+
+  function resetRun() {
+    idx = 0; attempts = []; cand = null; curMidi = null; silentSince = 0;
+    calibSamples = []; baseline = null; fingerState = null; videoBlob = null; chunks = [];
+    updateHud(null);
+  }
+
+  function begin() {
+    if (!checkInputs()) return;
+    resetRun();
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      $('msg-ready').textContent = '이 브라우저는 카메라를 쓸 수 없어요. 크롬이나 사파리로 열어주세요.';
+      return;
+    }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
+    $('btn-start').disabled = true;
+    $('btn-start').textContent = '카메라 켜는 중…';
+
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    }).then(function (s) {
+      stream = s;
+      $('video').srcObject = s;
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      audioCtx.createMediaStreamSource(s).connect(analyser);
+      pitchBuf = new Float32Array(analyser.fftSize);
+      fingerEnabled = !!handLandmarker;
+      $('btn-start').disabled = false; $('btn-start').textContent = '연주 시작';
+      show('sec-play');
+      rafId = requestAnimationFrame(handLoop);
+      startCalib();
+    }).catch(function (err) {
+      $('btn-start').disabled = false; $('btn-start').textContent = '연주 시작';
+      if (audioCtx) { audioCtx.close(); audioCtx = null; }
+      $('msg-ready').textContent = '카메라나 마이크를 켜지 못했어요. (' + err.name + ')\n권한을 허용했는지 확인하세요.';
+    });
+  }
+
+  /* ================= 기준 자세 (모든 구멍 막기) ================= */
+  function startCalib() {
+    phase = 'calib';
+    calibStart = performance.now();
+    $('calib').hidden = false;
+    renderFingering(null);
+    if (!fingerEnabled) {
+      $('calib-text').innerHTML = '손가락 인식 없이<br>음정만 확인해요';
+    } else {
+      $('calib-text').innerHTML = '모든 구멍을 막고<br>기다려요';
+    }
+    var t = setInterval(function () {
+      var el = performance.now() - calibStart;
+      var left = Math.max(0, Math.ceil((CALIB_MS - el) / 1000));
+      $('calib-num').textContent = left || '♪';
+
+      var enough = !fingerEnabled || calibSamples.length >= 10;
+      if (el >= CALIB_MS && enough) {
+        clearInterval(t);
+        if (fingerEnabled) baseline = averageSamples(calibSamples);
+        startPlay();
+      } else if (el >= CALIB_MS + 5000) {
+        clearInterval(t);
+        fingerEnabled = false;
+        $('play-note').textContent = '손이 잘 안 보여서 손가락 확인은 건너뛰어요.';
+        startPlay();
+      } else if (el >= CALIB_MS && !enough) {
+        $('calib-text').innerHTML = '두 손이 화면에<br>보이게 해주세요';
+      }
+    }, 100);
+  }
+
+  function startPlay() {
+    phase = 'play';
+    $('calib').hidden = true;
+    updateHud(null);
+    {
+      try {
+        var type = ['video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm'].find(function (t) {
+          return window.MediaRecorder && MediaRecorder.isTypeSupported(t);
+        });
+        recorder = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 1000000 });
+        recorder.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+        recorder.start(1000);
+      } catch (e) { recorder = null; }
+      pitchTimer = setInterval(pitchTick, 40);
+    }
+  }
+
+  /* ================= 소리 → 음 판단 ================= */
+  function pitchTick() {
+    analyser.getFloatTimeDomainData(pitchBuf);
+    var hz = detectPitch(pitchBuf, audioCtx.sampleRate);
+    onPitch(hz > 450 && hz < 2000 ? Math.round(12 * Math.log2(hz / 440) + 69) : null, performance.now());
+  }
+
+  function onPitch(midi, now) {
+    if (phase !== 'play') return;
+    if (midi === null) {
+      if (!silentSince) silentSince = now;
+      if (now - silentSince >= GAP_MS) { curMidi = null; cand = null; }
+      updateHud(null);
+      return;
+    }
+    silentSince = 0;
+    if (!cand || cand.midi !== midi) cand = { midi: midi, since: now };
+    if (now - cand.since >= STABLE_MS && curMidi !== cand.midi) {
+      curMidi = cand.midi;
+      judge(curMidi);
+    }
+    updateHud(midi);
+  }
+
+  function judge(midi) {
+    if (idx >= song.length) return;
+    var expected = song[idx];
+    var ok = midi === NOTE_MIDI[expected];
+    var fingerWrong = null;
+    if (fingerEnabled && fingerState && fingering[expected]) {
+      fingerWrong = [];
+      fingering[expected].forEach(function (down, i) {
+        if (fingerState[i] !== down) fingerWrong.push({ finger: FINGERS[i], down: down });
+      });
+    }
+    attempts.push({ no: idx + 1, expected: expected, played: midiName(midi), ok: ok, fingerWrong: fingerWrong });
+    idx++;
+    flash(ok);
+    if (idx >= song.length) setTimeout(finish, 900);
   }
 
   // 자기상관(소리 파형이 반복되는 간격)으로 음 높이 찾기
@@ -172,39 +543,228 @@
     var size = buf.length, rms = 0, i, j;
     for (i = 0; i < size; i++) rms += buf[i] * buf[i];
     rms = Math.sqrt(rms / size);
-    if (rms < 0.01) return -1; // 너무 조용함
-
+    if (rms < SILENCE_RMS) return -1;
     var r1 = 0, r2 = size - 1, th = 0.2;
     for (i = 0; i < size / 2; i++) if (Math.abs(buf[i]) < th) { r1 = i; break; }
     for (i = 1; i < size / 2; i++) if (Math.abs(buf[size - i]) < th) { r2 = size - i; break; }
-    var b = buf.slice(r1, r2);
-    size = b.length;
-
+    var b = buf.slice(r1, r2); size = b.length;
     var c = new Float32Array(size);
     for (i = 0; i < size; i++) for (j = 0; j < size - i; j++) c[i] += b[j] * b[j + i];
-
-    var d = 0;
-    while (d < size - 1 && c[d] > c[d + 1]) d++;
+    var d = 0; while (d < size - 1 && c[d] > c[d + 1]) d++;
     var maxVal = -1, maxPos = -1;
     for (i = d; i < size; i++) if (c[i] > maxVal) { maxVal = c[i]; maxPos = i; }
     if (maxPos <= 0 || maxPos >= size - 1) return -1;
-
     var x1 = c[maxPos - 1], x2 = c[maxPos], x3 = c[maxPos + 1];
     var a = (x1 + x3 - 2 * x2) / 2, bb = (x3 - x1) / 2;
-    var T0 = a ? maxPos - bb / (2 * a) : maxPos;
-    return sampleRate / T0;
+    return sampleRate / (a ? maxPos - bb / (2 * a) : maxPos);
   }
 
-  function stop() {
-    if (timer) clearInterval(timer);
-    if (audioCtx) audioCtx.close();
-    if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
-    stream = null; audioCtx = null; timer = null;
-    document.getElementById('stage').hidden = true;
-    document.getElementById('btn-start').hidden = false;
-    document.getElementById('btn-stop').hidden = true;
-    badge('st-cam', '대기'); badge('st-mic', '대기'); badge('st-pitch', '대기');
+  /* ================= 손 → 손가락 판단 ================= */
+  // 끝마디 번호와 기준 마디: 검지 8, 중지 12, 약지 16, 새끼 20 / 손목 0, 중지 뿌리 9
+  var LEFT_TIPS = [8, 12, 16], RIGHT_TIPS = [8, 12, 16, 20];
+
+  function handLoop() {
+    if (!stream) return;
+    var v = $('video'), now = performance.now();
+    if (handLandmarker && v.readyState >= 2 && now - lastHandT > 66) {
+      lastHandT = now;
+      try { processHands(handLandmarker.detectForVideo(v, now)); } catch (e) {}
+    }
+    rafId = requestAnimationFrame(handLoop);
   }
+
+  function relTips(lm, tips) {
+    var w = lm[0], m = lm[9];
+    var size = Math.hypot(m.x - w.x, m.y - w.y) || 1;
+    return tips.map(function (t) { return [(lm[t].x - w.x) / size, (lm[t].y - w.y) / size]; });
+  }
+
+  function processHands(res) {
+    var canvas = $('overlay'), v = $('video');
+    canvas.width = v.videoWidth || 640; canvas.height = v.videoHeight || 480;
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!res || !res.landmarks || res.landmarks.length < 2) { fingerState = null; return; }
+    // 리코더는 왼손이 위: 화면에서 손목이 위에 있는 손을 왼손으로 봅니다
+    var hands = res.landmarks.slice(0, 2).sort(function (a, b) { return a[0].y - b[0].y; });
+    var rel = relTips(hands[0], LEFT_TIPS).concat(relTips(hands[1], RIGHT_TIPS));
+    var pts = LEFT_TIPS.map(function (t) { return hands[0][t]; }).concat(RIGHT_TIPS.map(function (t) { return hands[1][t]; }));
+
+    if (phase === 'calib') { calibSamples.push(rel); drawDots(ctx, canvas, pts, null); return; }
+    if (!baseline) return;
+
+    fingerState = rel.map(function (p, i) {
+      var moved = Math.hypot(p[0] - baseline[i][0], p[1] - baseline[i][1]);
+      return moved < LIFT_THRESHOLD; // true = 내림
+    });
+    var expected = song[Math.min(idx, song.length - 1)];
+    drawDots(ctx, canvas, pts, fingering[expected]);
+    renderFingering(expected);
+  }
+
+  function averageSamples(samples) {
+    return samples[0].map(function (_, i) {
+      var sx = 0, sy = 0;
+      samples.forEach(function (s) { sx += s[i][0]; sy += s[i][1]; });
+      return [sx / samples.length, sy / samples.length];
+    });
+  }
+
+  function drawDots(ctx, canvas, pts, expect) {
+    pts.forEach(function (p, i) {
+      var good = !expect || !fingerState || fingerState[i] === expect[i];
+      ctx.beginPath();
+      ctx.arc(p.x * canvas.width, p.y * canvas.height, 9, 0, Math.PI * 2);
+      ctx.fillStyle = good ? '#3DBB6F' : '#E5483A';
+      ctx.fill();
+      ctx.lineWidth = 3; ctx.strokeStyle = '#FFFFFF'; ctx.stroke();
+    });
+  }
+
+  /* ================= 화면 표시 ================= */
+  var flashUntil = 0, flashOk = false;
+  function flash(ok) { flashUntil = performance.now() + 450; flashOk = ok; }
+
+  function updateHud(midi) {
+    var total = song.length;
+    var next = idx < total ? song[idx] : '끝';
+    $('next-note').textContent = next;
+    $('count').textContent = Math.min(idx, total) + ' / ' + total;
+    $('progress-bar').style.width = (total ? (idx / total) * 100 : 0) + '%';
+
+    var big = $('big-note');
+    var now = performance.now();
+    if (now < flashUntil) {
+      big.className = 'big-note ' + (flashOk ? 'ok' : 'bad');
+    } else if (midi !== null && idx < total) {
+      big.className = 'big-note ' + (midi === NOTE_MIDI[song[idx]] ? 'ok' : 'bad');
+    } else {
+      big.className = 'big-note';
+    }
+    big.firstChild.nodeValue = midi === null ? '–' : midiName(midi);
+    $('big-sub').textContent = midi === null ? '소리를 기다려요' : '지금 소리';
+    if (phase === 'play' && idx < total) renderFingering(song[idx]);
+  }
+
+  function renderFingering(note) {
+    var box = $('fingering');
+    var expect = note ? fingering[note] : null;
+    var html = '<span class="cap">' + (note || '운지') + '</span>';
+    for (var i = 0; i < 7; i++) {
+      if (i === 3) html += '<span class="split"></span>';
+      var down = expect ? expect[i] : true;
+      var wrong = expect && fingerEnabled && fingerState && fingerState[i] !== expect[i];
+      html += '<span class="hole' + (down ? ' down' : '') + (wrong ? ' wrong' : '') + '" title="' + FINGERS[i] + '"></span>';
+    }
+    box.innerHTML = html;
+  }
+
+  /* ================= 끝내기 → 결과 ================= */
+  $('btn-finish').addEventListener('click', finish);
+
+  function stopAll() {
+    phase = 'idle';
+    if (pitchTimer) { clearInterval(pitchTimer); pitchTimer = null; }
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  }
+
+  function finish() {
+    if (phase === 'idle') return;
+    var done = function () { stopAll(); showResult(); };
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.onstop = function () {
+        videoBlob = new Blob(chunks, { type: recorder.mimeType || 'video/webm' });
+        done();
+      };
+      recorder.stop();
+    } else { done(); }
+  }
+
+  var result = null;
+  function showResult() {
+    var total = song.length;
+    var correct = attempts.filter(function (a) { return a.ok; }).length;
+    var checked = attempts.filter(function (a) { return a.fingerWrong !== null; });
+    var fingerOk = checked.filter(function (a) { return a.fingerWrong.length === 0; }).length;
+
+    var pitchScore = total ? Math.round(correct / total * 100) : 0;
+    var fingerScore = checked.length ? Math.round(fingerOk / checked.length * 100) : null;
+
+    var lines = [total + '개 음 중 ' + correct + '개를 맞혔어요.'];
+    attempts.filter(function (a) { return !a.ok; }).slice(0, 3).forEach(function (a) {
+      lines.push(a.no + '번째 음 \'' + a.expected + '\' 자리에서 \'' + a.played + '\' 소리가 났어요.');
+    });
+    checked.filter(function (a) { return a.fingerWrong.length; }).slice(0, 3).forEach(function (a) {
+      var parts = a.fingerWrong.map(function (f) { return f.finger + '를 ' + (f.down ? '내려야' : '들어야'); });
+      lines.push(a.no + '번째 \'' + a.expected + '\': ' + parts.join(', ') + ' 해요.');
+    });
+    if (attempts.length < total) lines.push((total - attempts.length) + '개 음은 연주하지 못했어요.');
+    if (correct === total && (fingerScore === null || fingerScore === 100)) lines.push('음정과 손가락이 모두 정확해요. 멋져요!');
+
+    result = { 음정점수: pitchScore, 운지점수: fingerScore === null ? '' : fingerScore, 자동피드백: lines.join('\n') };
+
+    $('score-pitch').textContent = pitchScore;
+    $('score-pitch-sub').textContent = correct + ' / ' + total + '개';
+    $('score-finger').textContent = fingerScore === null ? '–' : fingerScore;
+    $('score-finger-sub').textContent = fingerScore === null ? '확인하지 못했어요' : fingerOk + ' / ' + checked.length + '개';
+    $('auto-fb').textContent = result.자동피드백;
+    $('msg-result').textContent = '';
+    show('sec-result');
+  }
+
+  /* ================= 제출: GAS로 보내기 ================= */
+  function blobToBase64(blob) {
+    return new Promise(function (resolve, reject) {
+      if (!blob || !blob.size) { resolve(''); return; }
+      var r = new FileReader();
+      r.onload = function () { resolve(String(r.result).split(',')[1]); };
+      r.onerror = function () { reject(new Error('영상을 읽지 못했어요.')); };
+      r.readAsDataURL(blob);
+    });
+  }
+
+  $('btn-submit').addEventListener('click', function () {
+    var btn = $('btn-submit');
+    btn.disabled = true; btn.textContent = '보내는 중…';
+    $('msg-result').textContent = '';
+
+    blobToBase64(videoBlob)
+      .then(function (b64) {
+        return callGas({
+          action: 'submit',
+          이름: $('in-name').value.trim(),
+          비밀번호: $('in-pw').value.trim(),
+          음정점수: result.음정점수,
+          운지점수: result.운지점수,
+          자동피드백: result.자동피드백,
+          영상: b64,
+          영상종류: videoBlob ? videoBlob.type : ''
+        });
+      })
+      .then(function () {
+        btn.disabled = false; btn.textContent = '제출';
+        $('done-text').textContent = $('in-name').value.trim() + '님, 선생님이 확인하면 피드백을 볼 수 있어요.';
+        show('sec-done');
+      })
+      .catch(function (err) {
+        btn.disabled = false; btn.textContent = '제출';
+        $('msg-result').textContent = '제출하지 못했어요. 인터넷 연결을 확인하고 다시 눌러주세요.\n(' + err.message + ')';
+      });
+  });
+
+  $('btn-retry').addEventListener('click', begin);
+  $('btn-again').addEventListener('click', function () { show('sec-ready'); });
+  function goFeedback() {
+    if (GAS_URL.indexOf('여기에_주소') > -1) { alert('GAS_URL을 먼저 넣어주세요.'); return; }
+    location.href = GAS_URL;
+  }
+  $('btn-go-feedback').addEventListener('click', goFeedback);
+  $('btn-my-feedback').addEventListener('click', goFeedback);
+
+  renderFingering(null);
 </script>
 </body>
 </html>
