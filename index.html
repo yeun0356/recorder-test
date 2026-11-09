@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>카메라·마이크 시험</title>
+<style>
+  :root {
+    --bg: #FFF9E8; --card: #FFFFFF; --ink: #3A2312; --ink-soft: #7A5638;
+    --primary: #6B3E1F; --on-primary: #FFFFFF; --line: #EAD7B4;
+    --ok: #2E7D4F; --ok-bg: #E4F4EA; --err: #B8392E; --err-bg: #FCEBE8; --wait-bg: #F6EEDC;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1F1610; --card: #2A1F17; --ink: #F5EAD6; --ink-soft: #CDB696;
+      --primary: #E2B07A; --on-primary: #2A1A0C; --line: #4A3826;
+      --ok: #6FD39A; --ok-bg: #173A27; --err: #F2948A; --err-bg: #3E1E1A; --wait-bg: #32251B;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+    font-size: 17px; line-height: 1.5; word-break: keep-all;
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { margin: 0 0 6px; font-size: 26px; text-align: center; }
+  .sub { margin: 0 0 18px; text-align: center; color: var(--ink-soft); font-size: 15px; }
+
+  .btn {
+    display: block; width: 100%; min-height: 52px; border: 0; border-radius: 12px;
+    background: var(--primary); color: var(--on-primary);
+    font: inherit; font-size: 18px; font-weight: 700; cursor: pointer;
+  }
+  .btn:disabled { opacity: 0.5; }
+  .btn.line { background: var(--card); color: var(--primary); border: 2px solid var(--primary); margin-top: 10px; }
+
+  .status { margin: 18px 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--line); }
+  .row:first-child { border-top: 0; }
+  .badge { padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 15px; background: var(--wait-bg); color: var(--ink-soft); white-space: nowrap; }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); }
+  .badge.err { background: var(--err-bg); color: var(--err); }
+
+  .stage { position: relative; border-radius: 14px; overflow: hidden; background: #000; aspect-ratio: 3 / 4; max-height: 60vh; margin: 0 auto; }
+  .stage[hidden] { display: none; }
+  video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
+  .note {
+    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+    min-width: 140px; padding: 8px 18px; border-radius: 16px;
+    background: rgba(0, 0, 0, 0.6); color: #fff; text-align: center;
+  }
+  .note b { display: block; font-size: 44px; line-height: 1.1; }
+  .note span { font-size: 14px; opacity: 0.85; }
+
+  .log { margin-top: 16px; padding: 12px 14px; border-radius: 12px; background: var(--err-bg); color: var(--err); font-size: 15px; white-space: pre-wrap; }
+  .log:empty { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>카메라·마이크 시험</h1>
+  <p class="sub">버튼을 누르고 권한을 허용한 뒤, 리코더로 한 음을 길게 불어보세요.</p>
+
+  <button class="btn" id="btn-start">카메라·마이크 켜기</button>
+  <button class="btn line" id="btn-stop" hidden>끄기</button>
+
+  <div class="status">
+    <div class="row"><span>틀(iframe)이 카메라 허용</span><span class="badge" id="st-policy">확인 중</span></div>
+    <div class="row"><span>카메라</span><span class="badge" id="st-cam">대기</span></div>
+    <div class="row"><span>마이크</span><span class="badge" id="st-mic">대기</span></div>
+    <div class="row"><span>소리 분석</span><span class="badge" id="st-pitch">대기</span></div>
+  </div>
+
+  <div class="stage" id="stage" hidden>
+    <video id="video" autoplay playsinline muted></video>
+    <div class="note"><b id="note-name">–</b><span id="note-hz">소리를 기다리는 중</span></div>
+  </div>
+
+  <p class="log" id="log"></p>
+</main>
+
+<script>
+  var NAMES = ['도', '도#', '레', '레#', '미', '파', '파#', '솔', '솔#', '라', '라#', '시'];
+  var stream = null, audioCtx = null, timer = null;
+
+  function badge(id, text, type) {
+    var el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'badge' + (type ? ' ' + type : '');
+  }
+  function log(text) { document.getElementById('log').textContent = text; }
+
+  // 1) 이 페이지를 감싼 틀이 카메라·마이크를 허용하는지 (크롬 계열에서만 확인 가능)
+  (function checkPolicy() {
+    var fp = document.featurePolicy || document.permissionsPolicy;
+    if (!fp || !fp.allowsFeature) { badge('st-policy', '알 수 없음'); return; }
+    var cam = fp.allowsFeature('camera'), mic = fp.allowsFeature('microphone');
+    if (cam && mic) badge('st-policy', '허용', 'ok');
+    else badge('st-policy', '막힘 (' + (cam ? '' : '카메라 ') + (mic ? '' : '마이크') + ')', 'err');
+  })();
+
+  document.getElementById('btn-start').addEventListener('click', start);
+  document.getElementById('btn-stop').addEventListener('click', stop);
+
+  function start() {
+    log('');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      badge('st-cam', '지원 안 함', 'err'); badge('st-mic', '지원 안 함', 'err');
+      log('이 브라우저는 카메라 사용을 지원하지 않아요. 크롬이나 사파리로 열어보세요.');
+      return;
+    }
+    badge('st-cam', '요청 중'); badge('st-mic', '요청 중');
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } })
+      .then(function (s) {
+        stream = s;
+        badge('st-cam', s.getVideoTracks().length ? '켜짐' : '없음', s.getVideoTracks().length ? 'ok' : 'err');
+        badge('st-mic', s.getAudioTracks().length ? '켜짐' : '없음', s.getAudioTracks().length ? 'ok' : 'err');
+        var video = document.getElementById('video');
+        video.srcObject = s;
+        document.getElementById('stage').hidden = false;
+        document.getElementById('btn-start').hidden = true;
+        document.getElementById('btn-stop').hidden = false;
+        startPitch(s);
+      })
+      .catch(function (err) {
+        badge('st-cam', '실패', 'err'); badge('st-mic', '실패', 'err');
+        var hint = '';
+        if (err.name === 'NotAllowedError') hint = '권한을 거부했거나, 앱을 감싼 틀이 카메라를 막고 있어요. 위 "틀이 카메라 허용"이 "막힘"이면 틀 문제입니다.';
+        else if (err.name === 'NotFoundError') hint = '카메라나 마이크를 찾지 못했어요.';
+        else if (err.name === 'NotReadableError') hint = '다른 앱이 카메라를 쓰고 있어요. 다른 앱을 닫고 다시 해보세요.';
+        log('오류: ' + err.name + '\n' + (err.message || '') + (hint ? '\n\n' + hint : ''));
+      });
+  }
+
+  function startPitch(s) {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AC();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      var src = audioCtx.createMediaStreamSource(s);
+      var analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      src.connect(analyser);
+      var buf = new Float32Array(analyser.fftSize);
+      badge('st-pitch', '작동 중', 'ok');
+
+      timer = setInterval(function () {
+        analyser.getFloatTimeDomainData(buf);
+        var hz = detectPitch(buf, audioCtx.sampleRate);
+        var nameEl = document.getElementById('note-name');
+        var hzEl = document.getElementById('note-hz');
+        if (hz < 0 || hz < 200 || hz > 2600) {
+          nameEl.textContent = '–';
+          hzEl.textContent = '소리를 기다리는 중';
+          return;
+        }
+        var n = 12 * Math.log2(hz / 440) + 69;
+        var r = Math.round(n);
+        var cents = Math.round((n - r) * 100);
+        nameEl.textContent = NAMES[((r % 12) + 12) % 12];
+        hzEl.textContent = Math.round(hz) + 'Hz · ' + (cents === 0 ? '정확' : (cents > 0 ? '+' : '') + cents + '센트');
+      }, 120);
+    } catch (e) {
+      badge('st-pitch', '실패', 'err');
+      log('소리 분석 오류: ' + e.message);
+    }
+  }
+
+  // 자기상관(소리 파형이 반복되는 간격)으로 음 높이 찾기
+  function detectPitch(buf, sampleRate) {
+    var size = buf.length, rms = 0, i, j;
+    for (i = 0; i < size; i++) rms += buf[i] * buf[i];
+    rms = Math.sqrt(rms / size);
+    if (rms < 0.01) return -1; // 너무 조용함
+
+    var r1 = 0, r2 = size - 1, th = 0.2;
+    for (i = 0; i < size / 2; i++) if (Math.abs(buf[i]) < th) { r1 = i; break; }
+    for (i = 1; i < size / 2; i++) if (Math.abs(buf[size - i]) < th) { r2 = size - i; break; }
+    var b = buf.slice(r1, r2);
+    size = b.length;
+
+    var c = new Float32Array(size);
+    for (i = 0; i < size; i++) for (j = 0; j < size - i; j++) c[i] += b[j] * b[j + i];
+
+    var d = 0;
+    while (d < size - 1 && c[d] > c[d + 1]) d++;
+    var maxVal = -1, maxPos = -1;
+    for (i = d; i < size; i++) if (c[i] > maxVal) { maxVal = c[i]; maxPos = i; }
+    if (maxPos <= 0 || maxPos >= size - 1) return -1;
+
+    var x1 = c[maxPos - 1], x2 = c[maxPos], x3 = c[maxPos + 1];
+    var a = (x1 + x3 - 2 * x2) / 2, bb = (x3 - x1) / 2;
+    var T0 = a ? maxPos - bb / (2 * a) : maxPos;
+    return sampleRate / T0;
+  }
+
+  function stop() {
+    if (timer) clearInterval(timer);
+    if (audioCtx) audioCtx.close();
+    if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+    stream = null; audioCtx = null; timer = null;
+    document.getElementById('stage').hidden = true;
+    document.getElementById('btn-start').hidden = false;
+    document.getElementById('btn-stop').hidden = true;
+    badge('st-cam', '대기'); badge('st-mic', '대기'); badge('st-pitch', '대기');
+  }
+</script>
+</body>
+</html>
