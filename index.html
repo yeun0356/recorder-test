@@ -137,6 +137,17 @@
   .big-note small { display: block; font-size: 18px; opacity: .9; }
 
   /* 리코더 운지 그림 */
+  .coach {
+    position: absolute; left: 10px; right: 86px; top: 64px;
+    padding: 10px 14px; border-radius: 16px;
+    background: rgba(184,57,46,.94); color: #FFFFFF;
+    font-family: var(--font-cute); line-height: 1.3;
+  }
+  .coach[hidden] { display: none; }
+  .coach b { display: block; font-weight: 400; font-size: 30px; }
+  .coach span { display: block; font-size: 20px; margin-top: 2px; }
+  .coach em { display: block; font-style: normal; font-size: 19px; margin-top: 4px; color: #FFE7A3; }
+  .coach em:empty { display: none; }
   .fingering {
     position: absolute; right: 10px; top: 60px;
     width: 66px; padding: 10px 0 12px; border-radius: 33px;
@@ -176,6 +187,21 @@
   .score span { display: block; font-family: var(--font-cute); font-size: 22px; color: var(--ink-soft); }
   .score b { display: block; font-weight: 400; font-family: var(--font-cute); font-size: 66px; line-height: 1.05; color: var(--primary); }
   .score small { font-size: 16px; color: var(--ink-soft); }
+  .practice-item { padding: 10px 12px; margin-top: 8px; border-radius: 12px; background: var(--field); border-left: 5px solid var(--accent); }
+  .practice-item:first-child { margin-top: 0; }
+  .practice-item h3 { margin: 0 0 6px; font-family: var(--font-cute); font-weight: 400; font-size: 21px; color: var(--primary); }
+  .practice-item p { margin: 6px 0 0; font-size: 17px; }
+  .note-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .nchip {
+    min-width: 40px; padding: 2px 10px; border-radius: 999px; text-align: center;
+    background: var(--card); border: 2px solid var(--line);
+    font-family: var(--font-cute); font-size: 19px; color: var(--ink);
+  }
+  .nchip.bad { background: var(--err-bg); border-color: var(--err); color: var(--err); }
+  .nchip.more { border-style: dashed; color: var(--ink-soft); }
+  .often { margin-top: 10px; }
+  .often-title { display: block; margin-bottom: 6px; font-family: var(--font-cute); font-size: 18px; color: var(--ink-soft); }
+  .practice-none { margin: 0; font-size: 18px; color: var(--ok); }
   .auto-fb { margin: 0; white-space: pre-wrap; font-size: 20px; }
   .done-mark { font-size: 64px; text-align: center; line-height: 1; margin-bottom: 8px; }
 
@@ -249,6 +275,12 @@
         <span class="chip" id="count">0 / 0</span>
       </div>
 
+      <div class="coach" id="coach" hidden>
+        <b id="coach-main"></b>
+        <span id="coach-how"></span>
+        <em id="coach-finger"></em>
+      </div>
+
       <div class="fingering" id="fingering" aria-label="다음 음 운지"></div>
 
       <div class="big-note" id="big-note">–<small id="big-sub">소리를 기다려요</small></div>
@@ -259,7 +291,7 @@
     </div>
 
     <div class="progress"><i id="progress-bar"></i></div>
-    <p class="play-note" id="play-note">마지막 음까지 불면 자동으로 끝나요.</p>
+    <p class="play-note" id="play-note">맞는 음을 내야 다음 음으로 넘어가요.</p>
     <button class="btn line" id="btn-finish">끝내기</button>
   </section>
 
@@ -272,6 +304,11 @@
       <div class="score"><span>음정</span><b id="score-pitch">0</b><small id="score-pitch-sub"></small></div>
       <div class="score"><span>손가락</span><b id="score-finger">0</b><small id="score-finger-sub"></small></div>
     </div>
+    <div class="panel" id="practice-panel">
+      <label class="field-label">더 연습할 곳</label>
+      <div id="practice-list"></div>
+    </div>
+    <div class="gap"></div>
     <div class="panel">
       <label class="field-label">자동 피드백</label>
       <p class="auto-fb" id="auto-fb"></p>
@@ -420,7 +457,7 @@
   }
 
   function resetRun() {
-    idx = 0; attempts = []; cand = null; curMidi = null; silentSince = 0;
+    idx = 0; attempts = []; hideCoach(); cand = null; curMidi = null; silentSince = 0;
     calibSamples = []; baseline = null; fingerState = null; videoBlob = null; chunks = [];
     updateHud(null);
   }
@@ -537,21 +574,62 @@
     updateHud(midi);
   }
 
+  function fingerCheck(expected) {
+    if (!(fingerEnabled && fingerState && fingering[expected])) return null;
+    var wrong = [];
+    fingering[expected].forEach(function (down, i) {
+      if (fingerState[i] !== down) wrong.push({ finger: FINGERS[i], down: down });
+    });
+    return wrong;
+  }
+
   function judge(midi) {
     if (idx >= song.length) return;
     var expected = song[idx];
-    var ok = midi === NOTE_MIDI[expected];
-    var fingerWrong = null;
-    if (fingerEnabled && fingerState && fingering[expected]) {
-      fingerWrong = [];
-      fingering[expected].forEach(function (down, i) {
-        if (fingerState[i] !== down) fingerWrong.push({ finger: FINGERS[i], down: down });
-      });
+    var target = NOTE_MIDI[expected];
+    var ok = midi === target;
+
+    // 이 음의 첫 시도만 점수에 씀
+    if (!attempts[idx]) {
+      attempts[idx] = { no: idx + 1, expected: expected, played: midiName(midi), ok: ok, tries: 0, wrongMidis: [], fingerWrong: fingerCheck(expected) };
     }
-    attempts.push({ no: idx + 1, expected: expected, played: midiName(midi), ok: ok, fingerWrong: fingerWrong });
-    idx++;
+    attempts[idx].tries++;
+    if (!ok) attempts[idx].wrongMidis.push(midi);
     flash(ok);
-    if (idx >= song.length) setTimeout(finish, 900);
+
+    if (ok) {
+      hideCoach();
+      idx++;
+      if (idx >= song.length) setTimeout(finish, 900);
+    } else {
+      showCoach(expected, midi);
+    }
+  }
+
+  /* 틀렸을 때 화면 안내: 높고 낮음 + 손가락 */
+  function showCoach(expected, midi) {
+    var target = NOTE_MIDI[expected];
+    var diff = midi - target;
+    var how;
+    if (diff === 12) how = '한 옥타브 높아요. 숨을 약하게 불어요';
+    else if (diff === -12) how = '한 옥타브 낮아요. 숨을 조금 세게 불어요';
+    else how = '지금 \'' + midiName(midi) + '\' · ' + (diff > 0 ? '높아요 ▼' : '낮아요 ▲');
+
+    var fw = fingerCheck(expected);
+    var fingerTip = '';
+    if (fw && fw.length) {
+      fingerTip = fw.slice(0, 2).map(function (f) { return f.finger + ' ' + (f.down ? '내리기' : '들기'); }).join(', ');
+    }
+    $('coach-main').textContent = '\'' + expected + '\'' + eulReul(expected) + ' 불어요';
+    $('coach-how').textContent = how;
+    $('coach-finger').textContent = fingerTip;
+    $('coach').hidden = false;
+  }
+  function hideCoach() { $('coach').hidden = true; }
+  // 받침이 있으면 '을', 없으면 '를'
+  function eulReul(word) {
+    var c = word.charCodeAt(word.length - 1) - 0xAC00;
+    return (c >= 0 && c <= 11171 && c % 28 !== 0) ? '을' : '를';
   }
 
   function rmsOf(buf) {
@@ -719,30 +797,143 @@
   }
 
   var result = null;
-  function showResult() {
+  /* 더 연습할 곳 찾기: 틀린 음이 모인 구간과 자주 틀린 음 */
+  function findPractice() {
     var total = song.length;
-    var correct = attempts.filter(function (a) { return a.ok; }).length;
-    var checked = attempts.filter(function (a) { return a.fingerWrong !== null; });
+    var probs = [];
+    for (var i = 0; i < total; i++) {
+      var a = attempts[i];
+      if (a && (!a.ok || (a.fingerWrong && a.fingerWrong.length))) probs.push(i);
+    }
+
+    // 2음 이내로 붙어 있는 틀린 음은 한 구간으로 묶음
+    var ranges = [];
+    probs.forEach(function (i) {
+      var last = ranges[ranges.length - 1];
+      if (last && i - last.end <= 2) last.end = i; else ranges.push({ start: i, end: i });
+    });
+    ranges.forEach(function (r) {
+      r.weight = 0;
+      for (var k = r.start; k <= r.end; k++) {
+        var a = attempts[k];
+        if (!a) continue;
+        r.weight += (a.ok ? 0 : 1) + (a.tries - 1) + (a.fingerWrong && a.fingerWrong.length ? 1 : 0);
+      }
+      r.tip = rangeTip(r);
+    });
+    ranges = ranges.sort(function (a, b) { return b.weight - a.weight; }).slice(0, 3)
+                   .sort(function (a, b) { return a.start - b.start; });
+
+    // 자주 틀린 음
+    var stat = {};
+    for (var j = 0; j < total; j++) {
+      var at = attempts[j];
+      if (!at) continue;
+      var n = song[j];
+      stat[n] = stat[n] || { name: n, times: 0, wrong: 0 };
+      stat[n].times++;
+      if (!at.ok || (at.fingerWrong && at.fingerWrong.length)) stat[n].wrong++;
+    }
+    var often = Object.keys(stat).map(function (k) { return stat[k]; })
+      .filter(function (x) { return x.wrong > 0; })
+      .sort(function (a, b) { return (b.wrong / b.times) - (a.wrong / a.times) || b.wrong - a.wrong; })
+      .slice(0, 3);
+
+    return { ranges: ranges, often: often, unfinished: idx < total ? idx : -1 };
+  }
+
+  // 구간에서 가장 도움이 될 연습 방법 한 줄
+  function rangeTip(r) {
+    var finger = null, octave = false;
+    for (var k = r.start; k <= r.end; k++) {
+      var a = attempts[k];
+      if (!a) continue;
+      if (!finger && a.fingerWrong && a.fingerWrong.length) {
+        var f = a.fingerWrong[0];
+        finger = '\'' + a.expected + '\'에서 ' + f.finger + ' ' + (f.down ? '내리기' : '들기');
+      }
+      a.wrongMidis.forEach(function (m) { if (Math.abs(m - NOTE_MIDI[a.expected]) === 12) octave = true; });
+    }
+    if (finger) return finger + '를 확인하며 천천히 불어 보세요.';
+    if (octave) return '높은 소리가 나면 숨을 약하게, 낮은 소리가 나면 조금 세게 불어 보세요.';
+    return '운지 그림을 보며 이 부분만 천천히 3번 불어 보세요.';
+  }
+
+  function chipsHtml(from, to, badSet) {
+    var html = '';
+    for (var i = from; i <= to; i++) html += '<span class="nchip' + (badSet[i] ? ' bad' : '') + '">' + song[i] + '</span>';
+    return html;
+  }
+
+  function renderPractice(p) {
+    var total = song.length, html = '';
+    var bad = {};
+    p.ranges.forEach(function (r) { for (var k = r.start; k <= r.end; k++) { var a = attempts[k]; if (a && (!a.ok || (a.fingerWrong && a.fingerWrong.length))) bad[k] = true; } });
+
+    p.ranges.forEach(function (r) {
+      var from = Math.max(0, r.start - 1), to = Math.min(total - 1, r.end + 1);
+      html += '<div class="practice-item"><h3>' + (r.start === r.end ? (r.start + 1) + '번째 음' : (r.start + 1) + '~' + (r.end + 1) + '번째 음') + '</h3>' +
+        '<div class="note-chips">' + chipsHtml(from, to, bad) + '</div><p>' + r.tip + '</p></div>';
+    });
+
+    if (p.unfinished >= 0) {
+      var end = Math.min(total - 1, p.unfinished + 5);
+      html += '<div class="practice-item"><h3>끝까지 못 간 곳 (' + (p.unfinished + 1) + '번째 음부터)</h3>' +
+        '<div class="note-chips">' + chipsHtml(p.unfinished, end, {}) + (end < total - 1 ? '<span class="nchip more">…</span>' : '') + '</div>' +
+        '<p>이 부분부터 이어서 연습해 보세요.</p></div>';
+    }
+
+    if (p.often.length) {
+      html += '<div class="often"><span class="often-title">자주 틀린 음</span><div class="note-chips">' +
+        p.often.map(function (o) { return '<span class="nchip bad">' + o.name + ' ' + o.wrong + '/' + o.times + '</span>'; }).join('') + '</div></div>';
+    }
+
+    if (!html) html = '<p class="practice-none">더 연습할 곳이 없어요. 아주 잘했어요!</p>';
+    $('practice-list').innerHTML = html;
+  }
+
+  function practiceLines(p) {
+    var lines = [];
+    if (p.ranges.length) {
+      lines.push('더 연습할 곳: ' + p.ranges.map(function (r) {
+        var notes = song.slice(r.start, r.end + 1).join(' ');
+        return (r.start === r.end ? (r.start + 1) + '번째' : (r.start + 1) + '~' + (r.end + 1) + '번째') + '(' + notes + ')';
+      }).join(', '));
+    }
+    if (p.often.length) lines.push('자주 틀린 음: ' + p.often.map(function (o) { return o.name + '(' + o.wrong + '/' + o.times + ')'; }).join(', '));
+    return lines;
+  }
+
+  function showResult() {
+    hideCoach();
+    var total = song.length;
+    var tried = attempts.filter(Boolean);
+    var firstOk = tried.filter(function (a) { return a.ok; }).length;
+    var checked = tried.filter(function (a) { return a.fingerWrong !== null; });
     var fingerOk = checked.filter(function (a) { return a.fingerWrong.length === 0; }).length;
 
-    var pitchScore = total ? Math.round(correct / total * 100) : 0;
+    var pitchScore = total ? Math.round(firstOk / total * 100) : 0;
     var fingerScore = checked.length ? Math.round(fingerOk / checked.length * 100) : null;
 
-    var lines = [total + '개 음 중 ' + correct + '개를 맞혔어요.'];
-    attempts.filter(function (a) { return !a.ok; }).slice(0, 3).forEach(function (a) {
-      lines.push(a.no + '번째 음 \'' + a.expected + '\' 자리에서 \'' + a.played + '\' 소리가 났어요.');
+    var lines = [total + '개 음 중 ' + firstOk + '개를 한 번에 맞혔어요.'];
+    tried.filter(function (a) { return !a.ok; }).slice(0, 3).forEach(function (a) {
+      var fixed = a.no <= idx ? ' (' + a.tries + '번 만에 맞힘)' : '';
+      lines.push(a.no + '번째 \'' + a.expected + '\': 처음에 \'' + a.played + '\' 소리가 났어요.' + fixed);
     });
     checked.filter(function (a) { return a.fingerWrong.length; }).slice(0, 3).forEach(function (a) {
       var parts = a.fingerWrong.map(function (f) { return f.finger + '를 ' + (f.down ? '내려야' : '들어야'); });
       lines.push(a.no + '번째 \'' + a.expected + '\': ' + parts.join(', ') + ' 해요.');
     });
-    if (attempts.length < total) lines.push((total - attempts.length) + '개 음은 연주하지 못했어요.');
-    if (correct === total && (fingerScore === null || fingerScore === 100)) lines.push('음정과 손가락이 모두 정확해요. 멋져요!');
+    if (idx < total) lines.push((idx + 1) + '번째 음부터 ' + (total - idx) + '개는 끝까지 연주하지 못했어요.');
+    if (firstOk === total && (fingerScore === null || fingerScore === 100)) lines.push('음정과 손가락이 모두 정확해요. 멋져요!');
+    var practice = findPractice();
+    lines = lines.concat(practiceLines(practice));
+    renderPractice(practice);
 
     result = { 음정점수: pitchScore, 운지점수: fingerScore === null ? '' : fingerScore, 자동피드백: lines.join('\n') };
 
     $('score-pitch').textContent = pitchScore;
-    $('score-pitch-sub').textContent = correct + ' / ' + total + '개';
+    $('score-pitch-sub').textContent = '한 번에 ' + firstOk + ' / ' + total + '개';
     $('score-finger').textContent = fingerScore === null ? '–' : fingerScore;
     $('score-finger-sub').textContent = fingerScore === null ? '확인하지 못했어요' : fingerOk + ' / ' + checked.length + '개';
     $('auto-fb').textContent = result.자동피드백;
