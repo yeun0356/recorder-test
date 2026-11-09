@@ -141,7 +141,7 @@
     position: absolute; right: 10px; top: 60px;
     width: 66px; padding: 10px 0 12px; border-radius: 33px;
     background: rgba(255,249,232,.9);
-    display: flex; flex-direction: column; align-items: center; gap: 7px;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
   }
   .fingering .hole {
     width: 28px; height: 28px; border-radius: 50%;
@@ -149,6 +149,8 @@
   }
   .fingering .hole.down { background: #6B3E1F; }
   .fingering .hole.wrong { box-shadow: 0 0 0 4px #E5483A; }
+  .fingering .hole.thumb { width: 24px; height: 24px; border-style: dashed; }
+  .fingering .thumb-cap { margin: -4px 0 4px; font-family: var(--font-cute); font-size: 12px; color: #6B3E1F; line-height: 1; }
   .fingering .split { width: 30px; height: 4px; border-radius: 2px; background: #C9A57A; margin: 2px 0; }
   .fingering .cap { font-family: var(--font-cute); font-size: 17px; color: #6B3E1F; line-height: 1; }
 
@@ -303,7 +305,7 @@
 
   /* ================= GAS 연결 ================= */
   // GAS 웹앱 주소(끝이 /exec)를 따옴표 안에 넣으세요
-  var GAS_URL ='https://script.google.com/macros/s/AKfycbwoYvwYLFDPZxU1XHjVbtsasr1VR9oSuLsW3nyWtiHyqrTEpzvVxxKAcb0J9mTdcmx-CQ/exec';
+  var GAS_URL = 'https://script.google.com/macros/s/AKfycbwoYvwYLFDPZxU1XHjVbtsasr1VR9oSuLsW3nyWtiHyqrTEpzvVxxKAcb0J9mTdcmx-CQ/exec';
 
   function callGas(body) {
     return fetch(GAS_URL, { method: 'POST', body: JSON.stringify(body) })
@@ -323,7 +325,7 @@
     return (m >= 84 ? '높은' : '') + SEMI[((m % 12) + 12) % 12];
   }
 
-  var song = [], fingering = {};
+  var song = [], fingering = {}, thumbs = {};
   var $ = function (id) { return document.getElementById(id); };
 
   function show(id) {
@@ -342,9 +344,11 @@
     callGas({ action: 'getSong' })
       .then(function (d) {
         song = d.음;
-        fingering = {};
+        fingering = {}; thumbs = {};
         Object.keys(d.운지).forEach(function (k) {
-          fingering[k] = d.운지[k].split('').map(function (c) { return c === 'O'; });
+          var code = d.운지[k];                 // 첫 글자: 왼손 엄지(뒤), 나머지 7글자: 정면 손가락
+          thumbs[k] = code.charAt(0) === 'O';
+          fingering[k] = code.slice(1).split('').map(function (c) { return c === 'O'; });
         });
         $('song-title').textContent = d.제목;
         setStatus('st-song', song.length + '개 음 준비됨', 'ok');
@@ -651,6 +655,9 @@
     var box = $('fingering');
     var expect = note ? fingering[note] : null;
     var html = '<span class="cap">' + (note || '운지') + '</span>';
+    var thumbDown = note ? !!thumbs[note] : true;
+    html += '<span class="hole thumb' + (thumbDown ? ' down' : '') + '" title="왼손 엄지 (뒤쪽 구멍)"></span>';
+    html += '<span class="thumb-cap">엄지</span>';
     for (var i = 0; i < 7; i++) {
       if (i === 3) html += '<span class="split"></span>';
       var down = expect ? expect[i] : true;
