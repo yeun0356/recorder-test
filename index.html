@@ -160,6 +160,7 @@
     font-family: var(--font-cute); font-size: 29px; line-height: 1.4;
   }
   .calib[hidden] { display: none; }
+  .calib small { display: block; margin-top: 6px; font-size: 22px; color: #FFE7A3; }
   .calib b { display: block; font-weight: 400; font-size: 92px; color: var(--accent); }
 
   .progress { height: 14px; margin: 10px 0; border-radius: 999px; background: var(--line); overflow: hidden; }
@@ -299,9 +300,13 @@
   /* ================= 조절값 (시험하면서 바꿀 수 있어요) ================= */
   var STABLE_MS = 200;        // 같은 음이 이만큼 이어지면 한 음으로 판단
   var GAP_MS = 60;            // 이만큼 조용하면 음이 끊긴 것으로 판단 (같은 음 반복 구분)
-  var SILENCE_RMS = 0.012;    // 이보다 작은 소리는 무시
+  var MIN_RMS = 0.003;        // 아무리 조용한 곳이어도 이보다 작은 소리는 무시
+  var MAX_RMS = 0.015;        // 시끄러운 곳이어도 기준이 이보다 높아지지는 않음
+  var NOISE_MULT = 3;         // 주변 소음의 몇 배부터 연주 소리로 볼지 (낮을수록 작은 소리도 인식)
   var LIFT_THRESHOLD = 0.35;  // 손가락이 기준 자세에서 이만큼 움직이면 '들림'
   var CALIB_MS = 3000;        // 기준 자세(모든 구멍 막기) 재는 시간
+  var CALIB_WAIT_MS = 15000;  // 두 손이 안 보일 때 기다려 주는 최대 시간
+  var HAND_CONFIDENCE = 0.3;  // 손 인식 기준 (낮을수록 손을 더 쉽게 찾음, 0.1~0.9)
 
   /* ================= GAS 연결 ================= */
   // GAS 웹앱 주소(끝이 /exec)를 따옴표 안에 넣으세요
@@ -374,7 +379,10 @@
                   modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
                   delegate: delegate
                 },
-                runningMode: 'VIDEO', numHands: 2
+                runningMode: 'VIDEO', numHands: 2,
+                minHandDetectionConfidence: HAND_CONFIDENCE,
+                minHandPresenceConfidence: HAND_CONFIDENCE,
+                minTrackingConfidence: HAND_CONFIDENCE
               };
             };
             return vision.HandLandmarker.createFromOptions(files, opts('GPU'))
@@ -396,7 +404,8 @@
   var idx = 0, attempts = [];
   var cand = null, curMidi = null, silentSince = 0;
   var fingerEnabled = false, calibSamples = [], baseline = null, fingerState = null, lastHandT = 0;
-  var calibStart = 0;
+  var calibStart = 0, handsSeen = 0;
+  var noiseSamples = [], silenceRms = 0.006;
 
   /* ================= 연주 시작 ================= */
   $('btn-start').addEventListener('click', begin);
@@ -440,6 +449,8 @@
       analyser.fftSize = 1024;
       audioCtx.createMediaStreamSource(s).connect(analyser);
       pitchBuf = new Float32Array(analyser.fftSize);
+      noiseSamples = []; silenceRms = MIN_RMS * 2;
+      pitchTimer = setInterval(pitchTick, 40);
       fingerEnabled = !!handLandmarker;
       $('btn-start').disabled = false; $('btn-start').textContent = '연주 시작';
       show('sec-play');
@@ -461,11 +472,11 @@
     if (!fingerEnabled) {
       $('calib-text').innerHTML = '손가락 인식 없이<br>음정만 확인해요';
     } else {
-      $('calib-text').innerHTML = '모든 구멍을 막고<br>기다려요';
+      $('calib-text').innerHTML = '모든 구멍을 막고<br>조용히 기다려요';
     }
     var t = setInterval(function () {
       var el = performance.now() - calibStart;
-      var left = Math.max(0, Math.ceil((CALIB_MS - el) / 1000));
+      var left = el < CALIB_MS ? Math.ceil((CALIB_MS - el) / 1000) : Math.max(0, Math.ceil((CALIB_MS + CALIB_WAIT_MS - el) / 1000));
       $('calib-num').textContent = left || '♪';
 
       var enough = !fingerEnabled || calibSamples.length >= 10;
@@ -473,18 +484,19 @@
         clearInterval(t);
         if (fingerEnabled) baseline = averageSamples(calibSamples);
         startPlay();
-      } else if (el >= CALIB_MS + 5000) {
+      } else if (el >= CALIB_MS + CALIB_WAIT_MS) {
         clearInterval(t);
         fingerEnabled = false;
         $('play-note').textContent = '손이 잘 안 보여서 손가락 확인은 건너뛰어요.';
         startPlay();
       } else if (el >= CALIB_MS && !enough) {
-        $('calib-text').innerHTML = '두 손이 화면에<br>보이게 해주세요';
+        $('calib-text').innerHTML = '두 손이 화면에<br>보이게 해주세요<br><small>보이는 손 ' + Math.min(handsSeen, 2) + ' / 2</small>';
       }
     }, 100);
   }
 
   function startPlay() {
+    setSilenceFromNoise();
     phase = 'play';
     $('calib').hidden = true;
     updateHud(null);
@@ -497,13 +509,13 @@
         recorder.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
         recorder.start(1000);
       } catch (e) { recorder = null; }
-      pitchTimer = setInterval(pitchTick, 40);
     }
   }
 
   /* ================= 소리 → 음 판단 ================= */
   function pitchTick() {
     analyser.getFloatTimeDomainData(pitchBuf);
+    if (phase === 'calib') { noiseSamples.push(rmsOf(pitchBuf)); return; } // 기준 자세 동안 주변 소음 재기
     var hz = detectPitch(pitchBuf, audioCtx.sampleRate);
     onPitch(hz > 450 && hz < 2000 ? Math.round(12 * Math.log2(hz / 440) + 69) : null, performance.now());
   }
@@ -542,12 +554,26 @@
     if (idx >= song.length) setTimeout(finish, 900);
   }
 
+  function rmsOf(buf) {
+    var sum = 0;
+    for (var i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+    return Math.sqrt(sum / buf.length);
+  }
+
+  // 주변 소음(가운데 값)의 NOISE_MULT배를 기준으로, MIN_RMS~MAX_RMS 사이로 맞춤
+  function setSilenceFromNoise() {
+    if (!noiseSamples.length) return;
+    var sorted = noiseSamples.slice().sort(function (a, b) { return a - b; });
+    var median = sorted[Math.floor(sorted.length / 2)];
+    silenceRms = Math.min(MAX_RMS, Math.max(MIN_RMS, median * NOISE_MULT));
+  }
+
   // 자기상관(소리 파형이 반복되는 간격)으로 음 높이 찾기
   function detectPitch(buf, sampleRate) {
     var size = buf.length, rms = 0, i, j;
     for (i = 0; i < size; i++) rms += buf[i] * buf[i];
     rms = Math.sqrt(rms / size);
-    if (rms < SILENCE_RMS) return -1;
+    if (rms < silenceRms) return -1;
     var r1 = 0, r2 = size - 1, th = 0.2;
     for (i = 0; i < size / 2; i++) if (Math.abs(buf[i]) < th) { r1 = i; break; }
     for (i = 1; i < size / 2; i++) if (Math.abs(buf[size - i]) < th) { r2 = size - i; break; }
@@ -589,7 +615,9 @@
     var ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (!res || !res.landmarks || res.landmarks.length < 2) { fingerState = null; return; }
+    handsSeen = (res && res.landmarks) ? res.landmarks.length : 0;
+    if (handsSeen === 1) drawDots(ctx, canvas, [8, 12, 16, 20].map(function (t) { return res.landmarks[0][t]; }), null);
+    if (handsSeen < 2) { fingerState = null; return; }
     // 리코더는 왼손이 위: 화면에서 손목이 위에 있는 손을 왼손으로 봅니다
     var hands = res.landmarks.slice(0, 2).sort(function (a, b) { return a[0].y - b[0].y; });
     var rel = relTips(hands[0], LEFT_TIPS).concat(relTips(hands[1], RIGHT_TIPS));
@@ -727,8 +755,8 @@
     return new Promise(function (resolve, reject) {
       if (!blob || !blob.size) { resolve(''); return; }
       var r = new FileReader();
-            r.onload = function () {
-        var dataUrl = String(r.result);
+      r.onload = function () {
+        var dataUrl = String(r.result);   // 형식 이름에 쉼표가 있어도 'base64,' 뒤만 정확히 잘라냄
         resolve(dataUrl.slice(dataUrl.indexOf('base64,') + 7));
       };
       r.onerror = function () { reject(new Error('영상을 읽지 못했어요.')); };
