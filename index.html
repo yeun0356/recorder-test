@@ -58,7 +58,14 @@
 
   .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
   .gap { height: 10px; }
-  label.field-label {
+  .class-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+  .class-btn {
+    min-height: 60px; border-radius: 14px; border: 2px solid var(--line);
+    background: var(--field); color: var(--ink);
+    font-family: var(--font-cute); font-size: 24px; cursor: pointer;
+  }
+  .class-btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+  label.field-label, span.field-label {
     display: block; margin-bottom: 4px;
     font-family: var(--font-cute); font-size: 21px;
   }
@@ -90,6 +97,7 @@
   }
   .btn:active { background: var(--primary-press); }
   .btn:disabled { opacity: .55; cursor: default; }
+  .btn[hidden] { display: none; }
   .btn.line { background: var(--card); color: var(--primary); border: 2px solid var(--primary); }
   .btn + .btn { margin-top: 8px; }
   .pill {
@@ -148,6 +156,19 @@
   .coach span { display: block; font-size: 20px; margin-top: 2px; }
   .coach em { display: block; font-style: normal; font-size: 19px; margin-top: 4px; color: #FFE7A3; }
   .coach em:empty { display: none; }
+  .beat {
+    position: absolute; left: 12px; right: 88px; bottom: 152px;
+    padding: 8px 12px 10px; border-radius: 14px; background: rgba(43,29,20,.78); color: #FFF7E6;
+    font-family: var(--font-cute);
+  }
+  .beat[hidden] { display: none; }
+  .beat-label { display: flex; justify-content: space-between; font-size: 18px; margin-bottom: 6px; }
+  .beat-track { position: relative; height: 22px; border-radius: 11px; background: rgba(255,255,255,.18); overflow: hidden; }
+  .beat-zone { position: absolute; top: 0; bottom: 0; background: rgba(61,187,111,.35); border-left: 2px solid #3DBB6F; border-right: 2px solid #3DBB6F; }
+  .beat-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--accent); border-radius: 11px; }
+  .beat-fill.in { background: #3DBB6F; }
+  .beat-fill.over { background: #E5483A; }
+  .beat-say { margin-top: 4px; font-size: 18px; min-height: 1.2em; color: #FFE7A3; }
   .fingering {
     position: absolute; right: 10px; top: 60px;
     width: 66px; padding: 10px 0 12px; border-radius: 33px;
@@ -179,13 +200,16 @@
   .play-note { margin: 0 0 8px; text-align: center; color: var(--ink-soft); font-size: 17px; }
 
   /* 결과 */
-  .scores { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .scores { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .pass { margin: 0 0 10px; padding: 12px 14px; border-radius: 14px; font-family: var(--font-cute); font-size: 21px; white-space: pre-wrap; }
+  .pass.ok { background: var(--ok-bg); color: var(--ok); }
+  .pass.no { background: var(--err-bg); color: var(--err); }
   .score {
     background: var(--card); border: 1px solid var(--line); border-radius: 16px;
     padding: 10px 8px; text-align: center;
   }
   .score span { display: block; font-family: var(--font-cute); font-size: 22px; color: var(--ink-soft); }
-  .score b { display: block; font-weight: 400; font-family: var(--font-cute); font-size: 66px; line-height: 1.05; color: var(--primary); }
+  .score b { display: block; font-weight: 400; font-family: var(--font-cute); font-size: 50px; line-height: 1.05; color: var(--primary); }
   .score small { font-size: 16px; color: var(--ink-soft); }
   .practice-item { padding: 10px 12px; margin-top: 8px; border-radius: 12px; background: var(--field); border-left: 5px solid var(--accent); }
   .practice-item:first-child { margin-top: 0; }
@@ -236,8 +260,13 @@
     </div>
 
     <div class="panel">
+      <div id="class-area" hidden>
+        <span class="field-label">반</span>
+        <div class="class-pick" id="class-pick" role="group" aria-label="반 고르기"></div>
+        <div class="gap"></div>
+      </div>
       <label class="field-label" for="in-name">이름</label>
-      <input type="text" id="in-name" placeholder="예: 김청평" autocomplete="off">
+      <input type="text" id="in-name" placeholder="예: 김하늘" autocomplete="off">
       <div class="gap"></div>
       <label class="field-label" for="in-pw">비밀번호</label>
       <input type="password" id="in-pw" placeholder="4자 이상" autocomplete="off">
@@ -283,6 +312,12 @@
 
       <div class="fingering" id="fingering" aria-label="다음 음 운지"></div>
 
+      <div class="beat" id="beat" hidden>
+        <div class="beat-label"><span id="beat-note"></span><span id="beat-len"></span></div>
+        <div class="beat-track"><i class="beat-zone" id="beat-zone"></i><i class="beat-fill" id="beat-fill"></i></div>
+        <div class="beat-say" id="beat-say"></div>
+      </div>
+
       <div class="big-note" id="big-note">–<small id="big-sub">소리를 기다려요</small></div>
 
       <div class="calib" id="calib" hidden>
@@ -302,8 +337,10 @@
     </div>
     <div class="scores">
       <div class="score"><span>음정</span><b id="score-pitch">0</b><small id="score-pitch-sub"></small></div>
+      <div class="score"><span>박자</span><b id="score-rhythm">0</b><small id="score-rhythm-sub"></small></div>
       <div class="score"><span>손가락</span><b id="score-finger">0</b><small id="score-finger-sub"></small></div>
     </div>
+    <p class="pass" id="pass-box"></p>
     <div class="panel" id="practice-panel">
       <label class="field-label">더 연습할 곳</label>
       <div id="practice-list"></div>
@@ -337,6 +374,9 @@
   /* ================= 조절값 (시험하면서 바꿀 수 있어요) ================= */
   var STABLE_MS = 200;        // 같은 음이 이만큼 이어지면 한 음으로 판단
   var GAP_MS = 60;            // 이만큼 조용하면 음이 끊긴 것으로 판단 (같은 음 반복 구분)
+  var DIP_RATIO = 0.45;       // 소리가 이 비율 아래로 줄었다가 다시 커지면 같은 음을 '다시 분' 것으로 판단
+  var RHYTHM_MIN = 0.7;       // 박 길이의 70%보다 짧으면 '짧아요'
+  var RHYTHM_MAX = 1.4;       // 박 길이의 140%보다 길면 '길어요'
   var MIN_RMS = 0.003;        // 아무리 조용한 곳이어도 이보다 작은 소리는 무시
   var MAX_RMS = 0.015;        // 시끄러운 곳이어도 기준이 이보다 높아지지는 않음
   var NOISE_MULT = 3;         // 주변 소음의 몇 배부터 연주 소리로 볼지 (낮을수록 작은 소리도 인식)
@@ -367,7 +407,8 @@
     return (m >= 84 ? '높은' : '') + SEMI[((m % 12) + 12) % 12];
   }
 
-  var song = [], fingering = {}, thumbs = {};
+  var song = [], fingering = {}, thumbs = {}, classes = [], selectedClass = '';
+  var beats = [], bpm = 80, timeLimitSec = 0, passScore = 0;
   var $ = function (id) { return document.getElementById(id); };
 
   function show(id) {
@@ -386,6 +427,10 @@
     callGas({ action: 'getSong' })
       .then(function (d) {
         song = d.음;
+        beats = d.길이 || song.map(function () { return 1; });
+        bpm = Number(d.빠르기) || 80;
+        timeLimitSec = Number(d.제한시간) || 0;
+        passScore = Number(d.통과점수) || 0;
         fingering = {}; thumbs = {};
         Object.keys(d.운지).forEach(function (k) {
           var code = d.운지[k];                 // 첫 글자: 왼손 엄지(뒤), 나머지 7글자: 정면 손가락
@@ -393,6 +438,7 @@
           fingering[k] = code.slice(1).split('').map(function (c) { return c === 'O'; });
         });
         $('song-title').textContent = d.제목;
+        renderClasses(d.반목록 || []);
         setStatus('st-song', song.length + '개 음 준비됨', 'ok');
       })
       .catch(function (err) {
@@ -401,6 +447,24 @@
         $('msg-ready').textContent = '곡 정보를 불러오지 못했어요.\n' + err.message;
       });
   }
+  function renderClasses(list) {
+    classes = list;
+    if (!list.length) { $('class-area').hidden = true; return; }
+    $('class-pick').innerHTML = list.map(function (c) {
+      return '<button type="button" class="class-btn" aria-pressed="false" data-class="' + c + '">' + c + '</button>';
+    }).join('');
+    $('class-area').hidden = false;
+  }
+  $('class-pick').addEventListener('click', function (e) {
+    var btn = e.target.closest('.class-btn');
+    if (!btn) return;
+    selectedClass = btn.getAttribute('data-class');
+    Array.prototype.forEach.call($('class-pick').children, function (b) {
+      b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+    });
+    $('msg-ready').textContent = '';
+  });
+
   loadSong();
 
   /* ================= 손가락 인식 준비 (MediaPipe) ================= */
@@ -440,6 +504,8 @@
   var pitchTimer = null, rafId = null, recorder = null, chunks = [], videoBlob = null;
   var idx = 0, attempts = [];
   var cand = null, curMidi = null, silentSince = 0;
+  var hold = null, segPeak = 0, dipped = false, dipAt = 0, tickN = 0, lastMidi = null;
+  var playStart = 0, timedOut = false, beatHideTimer = null, finishing = false;
   var fingerEnabled = false, calibSamples = [], baseline = null, fingerState = null, lastHandT = 0;
   var calibStart = 0, handsSeen = 0;
   var noiseSamples = [], silenceRms = 0.006;
@@ -449,6 +515,7 @@
 
   function checkInputs() {
     var name = $('in-name').value.trim(), pw = $('in-pw').value.trim();
+    if (classes.length && !selectedClass) { $('msg-ready').textContent = '반을 고르세요.'; return false; }
     if (!name) { $('msg-ready').textContent = '이름을 입력하세요.'; $('in-name').focus(); return false; }
     if (pw.length < 4) { $('msg-ready').textContent = '비밀번호는 4자 이상으로 정하세요.'; $('in-pw').focus(); return false; }
     if (!song.length) { $('msg-ready').textContent = '곡 정보를 아직 불러오지 못했어요. 잠시 뒤 다시 눌러주세요.'; return false; }
@@ -458,6 +525,7 @@
 
   function resetRun() {
     idx = 0; attempts = []; hideCoach(); cand = null; curMidi = null; silentSince = 0;
+    hold = null; segPeak = 0; dipped = false; tickN = 0; lastMidi = null; timedOut = false; finishing = false; $('beat').hidden = true;
     calibSamples = []; baseline = null; fingerState = null; videoBlob = null; chunks = [];
     updateHud(null);
   }
@@ -487,7 +555,7 @@
       audioCtx.createMediaStreamSource(s).connect(analyser);
       pitchBuf = new Float32Array(analyser.fftSize);
       noiseSamples = []; silenceRms = MIN_RMS * 2;
-      pitchTimer = setInterval(pitchTick, 40);
+      pitchTimer = setInterval(pitchTick, 20);
       fingerEnabled = !!handLandmarker;
       $('btn-start').disabled = false; $('btn-start').textContent = '연주 시작';
       show('sec-play');
@@ -535,6 +603,7 @@
   function startPlay() {
     setSilenceFromNoise();
     phase = 'play';
+    playStart = performance.now();
     $('calib').hidden = true;
     updateHud(null);
     {
@@ -552,26 +621,107 @@
   /* ================= 소리 → 음 판단 ================= */
   function pitchTick() {
     analyser.getFloatTimeDomainData(pitchBuf);
-    if (phase === 'calib') { noiseSamples.push(rmsOf(pitchBuf)); return; } // 기준 자세 동안 주변 소음 재기
-    var hz = detectPitch(pitchBuf, audioCtx.sampleRate);
-    onPitch(hz > 450 && hz < 2000 ? Math.round(12 * Math.log2(hz / 440) + 69) : null, performance.now());
+    var rms = rmsOf(pitchBuf);
+    if (phase === 'calib') { noiseSamples.push(rms); return; } // 기준 자세 동안 주변 소음 재기
+    tickN++;
+    var midi;
+    if (rms < silenceRms) midi = null;
+    else if (tickN % 2 === 0 || lastMidi === null) {
+      var hz = detectPitch(pitchBuf, audioCtx.sampleRate);
+      midi = (hz > 450 && hz < 2000) ? Math.round(12 * Math.log2(hz / 440) + 69) : null;
+      lastMidi = midi;
+    } else midi = lastMidi;
+    onSound(midi, rms, performance.now());
   }
 
-  function onPitch(midi, now) {
+  function onSound(midi, rms, now) {
     if (phase !== 'play') return;
+    checkTime(now);
+    if (phase !== 'play') return;
+
     if (midi === null) {
       if (!silentSince) silentSince = now;
-      if (now - silentSince >= GAP_MS) { curMidi = null; cand = null; }
-      updateHud(null);
+      if (now - silentSince >= GAP_MS) { endHold(silentSince); curMidi = null; cand = null; }
+      updateHud(null, now);
       return;
     }
     silentSince = 0;
+
+    // 같은 음을 혀로 끊어 다시 불었는지: 소리가 크게 줄었다가 다시 커지면 새 음
+    if (curMidi !== null && midi === curMidi && segPeak > 0) {
+      if (!dipped && rms < segPeak * DIP_RATIO) { dipped = true; dipAt = now; }
+      else if (dipped && rms > segPeak * 0.7) {
+        endHold(dipAt);
+        curMidi = null; dipped = false; segPeak = 0;
+        cand = { midi: midi, since: now };
+      }
+    }
+
     if (!cand || cand.midi !== midi) cand = { midi: midi, since: now };
     if (now - cand.since >= STABLE_MS && curMidi !== cand.midi) {
-      curMidi = cand.midi;
-      judge(curMidi);
+      if (curMidi !== null) endHold(cand.since);
+      curMidi = cand.midi; segPeak = rms; dipped = false;
+      judge(curMidi, cand.since);
     }
-    updateHud(midi);
+    if (!dipped) segPeak = Math.max(segPeak * 0.995, rms);
+    updateHud(midi, now);
+  }
+
+  /* 박 길이 재기 */
+  function beatMs(i) { return (Number(beats[i]) || 1) * 60000 / bpm; }
+
+  function startHold(i, start) {
+    hold = { i: i, start: start, target: beatMs(i) };
+    clearTimeout(beatHideTimer);
+    $('beat-note').textContent = '\'' + song[i] + '\' 박 길이';
+    $('beat-len').textContent = (Number(beats[i]) || 1) + '박';
+    var full = hold.target * 1.6;
+    var z = $('beat-zone');
+    z.style.left = (hold.target * RHYTHM_MIN / full * 100) + '%';
+    z.style.width = (hold.target * (RHYTHM_MAX - RHYTHM_MIN) / full * 100) + '%';
+    $('beat-say').textContent = '';
+    $('beat').hidden = false;
+  }
+
+  function drawHold(now) {
+    if (!hold) return;
+    var held = now - hold.start, ratio = held / hold.target;
+    var fill = $('beat-fill');
+    fill.style.width = Math.min(100, held / (hold.target * 1.6) * 100) + '%';
+    fill.className = 'beat-fill' + (ratio > RHYTHM_MAX ? ' over' : (ratio >= RHYTHM_MIN ? ' in' : ''));
+    // 같은 음이 이어지는데 끊지 않고 계속 부는 경우
+    if (ratio > RHYTHM_MAX && idx < song.length && song[idx] === song[hold.i]) {
+      $('beat-say').textContent = '같은 음 한 번 더! 혀로 \'투\' 하고 끊어 불어요';
+    } else if (ratio > RHYTHM_MAX) {
+      $('beat-say').textContent = '너무 길어요';
+    }
+  }
+
+  function endHold(end) {
+    if (!hold) return;
+    var a = attempts[hold.i];
+    var dur = Math.max(0, end - hold.start), ratio = dur / hold.target;
+    if (a) {
+      a.heldBeats = Math.round(dur / (60000 / bpm) * 10) / 10;
+      a.rhythm = ratio < RHYTHM_MIN ? 'short' : (ratio > RHYTHM_MAX ? 'long' : 'ok');
+    }
+    var fill = $('beat-fill');
+    fill.style.width = Math.min(100, dur / (hold.target * 1.6) * 100) + '%';
+    fill.className = 'beat-fill' + (ratio > RHYTHM_MAX ? ' over' : (ratio >= RHYTHM_MIN ? ' in' : ''));
+    $('beat-say').textContent = ratio < RHYTHM_MIN ? '짧아요 ▶ 조금 더 길게' : (ratio > RHYTHM_MAX ? '길어요 ◀ 조금 더 짧게' : '박자 좋아요!');
+    hold = null;
+    beatHideTimer = setTimeout(function () { if (!hold) $('beat').hidden = true; }, 900);
+    if (idx >= song.length) setTimeout(finish, 600);
+  }
+
+  /* 제한시간 */
+  function checkTime(now) {
+    if (!timeLimitSec || timedOut) return;
+    if (now - playStart >= timeLimitSec * 1000) {
+      timedOut = true;
+      endHold(now);
+      finish();
+    }
   }
 
   function fingerCheck(expected) {
@@ -583,7 +733,7 @@
     return wrong;
   }
 
-  function judge(midi) {
+  function judge(midi, onset) {
     if (idx >= song.length) return;
     var expected = song[idx];
     var target = NOTE_MIDI[expected];
@@ -599,8 +749,8 @@
 
     if (ok) {
       hideCoach();
+      startHold(idx, onset || performance.now());
       idx++;
-      if (idx >= song.length) setTimeout(finish, 900);
     } else {
       showCoach(expected, midi);
     }
@@ -736,15 +886,21 @@
   var flashUntil = 0, flashOk = false;
   function flash(ok) { flashUntil = performance.now() + 450; flashOk = ok; }
 
-  function updateHud(midi) {
+  function updateHud(midi, now) {
+    now = now || performance.now();
     var total = song.length;
     var next = idx < total ? song[idx] : '끝';
     $('next-note').textContent = next;
-    $('count').textContent = Math.min(idx, total) + ' / ' + total;
+    var countText = Math.min(idx, total) + ' / ' + total;
+    if (timeLimitSec && phase === 'play') {
+      var left = Math.max(0, Math.ceil(timeLimitSec - (now - playStart) / 1000));
+      countText += ' · ' + Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2);
+    }
+    $('count').textContent = countText;
+    drawHold(now);
     $('progress-bar').style.width = (total ? (idx / total) * 100 : 0) + '%';
 
     var big = $('big-note');
-    var now = performance.now();
     if (now < flashUntil) {
       big.className = 'big-note ' + (flashOk ? 'ok' : 'bad');
     } else if (midi !== null && idx < total) {
@@ -785,7 +941,9 @@
   }
 
   function finish() {
-    if (phase === 'idle') return;
+    if (phase === 'idle' || finishing) return;
+    finishing = true;
+    if (hold) endHoldSilently(performance.now());
     var done = function () { stopAll(); showResult(); };
     if (recorder && recorder.state !== 'inactive') {
       recorder.onstop = function () {
@@ -796,14 +954,27 @@
     } else { done(); }
   }
 
+  function endHoldSilently(end) {
+    if (!hold) return;
+    var a = attempts[hold.i];
+    var dur = Math.max(0, end - hold.start), ratio = dur / hold.target;
+    if (a) {
+      a.heldBeats = Math.round(dur / (60000 / bpm) * 10) / 10;
+      a.rhythm = ratio < RHYTHM_MIN ? 'short' : (ratio > RHYTHM_MAX ? 'long' : 'ok');
+    }
+    hold = null;
+  }
+
   var result = null;
+  function isProblem(a) { return !a.ok || (a.fingerWrong && a.fingerWrong.length) || (a.rhythm && a.rhythm !== 'ok'); }
+
   /* 더 연습할 곳 찾기: 틀린 음이 모인 구간과 자주 틀린 음 */
   function findPractice() {
     var total = song.length;
     var probs = [];
     for (var i = 0; i < total; i++) {
       var a = attempts[i];
-      if (a && (!a.ok || (a.fingerWrong && a.fingerWrong.length))) probs.push(i);
+      if (a && isProblem(a)) probs.push(i);
     }
 
     // 2음 이내로 붙어 있는 틀린 음은 한 구간으로 묶음
@@ -817,7 +988,7 @@
       for (var k = r.start; k <= r.end; k++) {
         var a = attempts[k];
         if (!a) continue;
-        r.weight += (a.ok ? 0 : 1) + (a.tries - 1) + (a.fingerWrong && a.fingerWrong.length ? 1 : 0);
+        r.weight += (a.ok ? 0 : 1) + (a.tries - 1) + (a.fingerWrong && a.fingerWrong.length ? 1 : 0) + (a.rhythm && a.rhythm !== 'ok' ? 1 : 0);
       }
       r.tip = rangeTip(r);
     });
@@ -832,7 +1003,7 @@
       var n = song[j];
       stat[n] = stat[n] || { name: n, times: 0, wrong: 0 };
       stat[n].times++;
-      if (!at.ok || (at.fingerWrong && at.fingerWrong.length)) stat[n].wrong++;
+      if (isProblem(at)) stat[n].wrong++;
     }
     var often = Object.keys(stat).map(function (k) { return stat[k]; })
       .filter(function (x) { return x.wrong > 0; })
@@ -844,7 +1015,7 @@
 
   // 구간에서 가장 도움이 될 연습 방법 한 줄
   function rangeTip(r) {
-    var finger = null, octave = false;
+    var finger = null, octave = false, rhythm = null;
     for (var k = r.start; k <= r.end; k++) {
       var a = attempts[k];
       if (!a) continue;
@@ -853,9 +1024,11 @@
         finger = '\'' + a.expected + '\'에서 ' + f.finger + ' ' + (f.down ? '내리기' : '들기');
       }
       a.wrongMidis.forEach(function (m) { if (Math.abs(m - NOTE_MIDI[a.expected]) === 12) octave = true; });
+      if (!rhythm && a.rhythm && a.rhythm !== 'ok') rhythm = a;
     }
     if (finger) return finger + '를 확인하며 천천히 불어 보세요.';
     if (octave) return '높은 소리가 나면 숨을 약하게, 낮은 소리가 나면 조금 세게 불어 보세요.';
+    if (rhythm) return '\'' + rhythm.expected + '\'' + eulReul(rhythm.expected) + ' ' + (rhythm.rhythm === 'short' ? '더 길게' : '더 짧게') + ' 불어요. 게이지가 초록 칸에서 멈추도록 연습해 보세요.';
     return '운지 그림을 보며 이 부분만 천천히 3번 불어 보세요.';
   }
 
@@ -868,7 +1041,7 @@
   function renderPractice(p) {
     var total = song.length, html = '';
     var bad = {};
-    p.ranges.forEach(function (r) { for (var k = r.start; k <= r.end; k++) { var a = attempts[k]; if (a && (!a.ok || (a.fingerWrong && a.fingerWrong.length))) bad[k] = true; } });
+    p.ranges.forEach(function (r) { for (var k = r.start; k <= r.end; k++) { var a = attempts[k]; if (a && isProblem(a)) bad[k] = true; } });
 
     p.ranges.forEach(function (r) {
       var from = Math.max(0, r.start - 1), to = Math.min(total - 1, r.end + 1);
@@ -906,36 +1079,61 @@
 
   function showResult() {
     hideCoach();
+    $('beat').hidden = true;
     var total = song.length;
     var tried = attempts.filter(Boolean);
     var firstOk = tried.filter(function (a) { return a.ok; }).length;
     var checked = tried.filter(function (a) { return a.fingerWrong !== null; });
     var fingerOk = checked.filter(function (a) { return a.fingerWrong.length === 0; }).length;
+    var timed = tried.filter(function (a) { return a.rhythm; });
+    var rhythmOk = timed.filter(function (a) { return a.rhythm === 'ok'; }).length;
 
     var pitchScore = total ? Math.round(firstOk / total * 100) : 0;
+    var rhythmScore = timed.length ? Math.round(rhythmOk / total * 100) : 0;
     var fingerScore = checked.length ? Math.round(fingerOk / checked.length * 100) : null;
+    var totalScore = Math.round((pitchScore + rhythmScore) / 2);   // 통과 판단: 음정과 박자의 평균
+    var finished = idx >= total && !timedOut;
 
-    var lines = [total + '개 음 중 ' + firstOk + '개를 한 번에 맞혔어요.'];
+    var lines = [total + '개 음 중 ' + firstOk + '개를 한 번에 맞혔어요. 박자는 ' + rhythmOk + '개가 알맞았어요.'];
     tried.filter(function (a) { return !a.ok; }).slice(0, 3).forEach(function (a) {
       var fixed = a.no <= idx ? ' (' + a.tries + '번 만에 맞힘)' : '';
       lines.push(a.no + '번째 \'' + a.expected + '\': 처음에 \'' + a.played + '\' 소리가 났어요.' + fixed);
+    });
+    timed.filter(function (a) { return a.rhythm !== 'ok'; }).slice(0, 3).forEach(function (a) {
+      lines.push(a.no + '번째 \'' + a.expected + '\': ' + (Number(beats[a.no - 1]) || 1) + '박인데 ' + a.heldBeats + '박 불었어요 (' + (a.rhythm === 'short' ? '짧아요' : '길어요') + ').');
     });
     checked.filter(function (a) { return a.fingerWrong.length; }).slice(0, 3).forEach(function (a) {
       var parts = a.fingerWrong.map(function (f) { return f.finger + '를 ' + (f.down ? '내려야' : '들어야'); });
       lines.push(a.no + '번째 \'' + a.expected + '\': ' + parts.join(', ') + ' 해요.');
     });
+    if (timedOut) lines.push('제한시간(' + timeLimitSec + '초) 안에 끝까지 불지 못했어요.');
     if (idx < total) lines.push((idx + 1) + '번째 음부터 ' + (total - idx) + '개는 끝까지 연주하지 못했어요.');
-    if (firstOk === total && (fingerScore === null || fingerScore === 100)) lines.push('음정과 손가락이 모두 정확해요. 멋져요!');
+    if (firstOk === total && rhythmOk === total && (fingerScore === null || fingerScore === 100)) lines.push('음정, 박자, 손가락이 모두 정확해요. 멋져요!');
     var practice = findPractice();
     lines = lines.concat(practiceLines(practice));
     renderPractice(practice);
 
-    result = { 음정점수: pitchScore, 운지점수: fingerScore === null ? '' : fingerScore, 자동피드백: lines.join('\n') };
+    // 제출할 수 있는지
+    var reasons = [];
+    if (!finished) reasons.push(timedOut ? '제한시간 안에 끝까지 불지 못했어요.' : '끝까지 불지 않았어요.');
+    if (passScore && totalScore < passScore) reasons.push('음정·박자 평균이 ' + totalScore + '점이에요. ' + passScore + '점 이상이어야 해요.');
+    var canSubmit = reasons.length === 0;
+
+    result = {
+      음정점수: pitchScore, 박자점수: rhythmScore, 운지점수: fingerScore === null ? '' : fingerScore,
+      자동피드백: lines.join('\n'), 완주: finished
+    };
 
     $('score-pitch').textContent = pitchScore;
-    $('score-pitch-sub').textContent = '한 번에 ' + firstOk + ' / ' + total + '개';
+    $('score-pitch-sub').textContent = '한 번에 ' + firstOk + '/' + total;
+    $('score-rhythm').textContent = rhythmScore;
+    $('score-rhythm-sub').textContent = '알맞음 ' + rhythmOk + '/' + total;
     $('score-finger').textContent = fingerScore === null ? '–' : fingerScore;
-    $('score-finger-sub').textContent = fingerScore === null ? '확인하지 못했어요' : fingerOk + ' / ' + checked.length + '개';
+    $('score-finger-sub').textContent = fingerScore === null ? '확인 못함' : fingerOk + '/' + checked.length;
+    var pass = $('pass-box');
+    pass.className = 'pass ' + (canSubmit ? 'ok' : 'no');
+    pass.textContent = canSubmit ? '통과! 제출할 수 있어요.' : '아직 제출할 수 없어요.\n' + reasons.join('\n') + '\n다시 해 봐요!';
+    $('btn-submit').hidden = !canSubmit;
     $('auto-fb').textContent = result.자동피드백;
     $('msg-result').textContent = '';
     show('sec-result');
@@ -964,9 +1162,12 @@
       .then(function (b64) {
         return callGas({
           action: 'submit',
+          반: selectedClass,
           이름: $('in-name').value.trim(),
           비밀번호: $('in-pw').value.trim(),
           음정점수: result.음정점수,
+          박자점수: result.박자점수,
+          완주: result.완주,
           운지점수: result.운지점수,
           자동피드백: result.자동피드백,
           영상: b64,
@@ -975,7 +1176,7 @@
       })
       .then(function () {
         btn.disabled = false; btn.textContent = '제출';
-        $('done-text').textContent = $('in-name').value.trim() + '님, 선생님이 확인하면 피드백을 볼 수 있어요.';
+        $('done-text').textContent = (selectedClass ? selectedClass + ' ' : '') + $('in-name').value.trim() + '님, 선생님이 확인하면 피드백을 볼 수 있어요.';
         show('sec-done');
       })
       .catch(function (err) {
