@@ -227,8 +227,9 @@
   .score small { font-size: 16px; color: var(--ink-soft); }
   .practice-item { padding: 10px 12px; margin-top: 8px; border-radius: 12px; background: var(--field); border-left: 5px solid var(--accent); }
   .practice-item:first-child { margin-top: 0; }
-  .practice-item h3 { margin: 0 0 6px; font-family: var(--font-cute); font-weight: 400; font-size: 21px; color: var(--primary); }
-  .practice-item p { margin: 6px 0 0; font-size: 17px; }
+  .practice-item h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-family: var(--font-cute); font-weight: 400; font-size: 21px; color: var(--primary); }
+  .practice-item p { margin: 4px 0 0; font-size: 17px; }
+  .practice-item p b { font-weight: 400; font-family: var(--font-cute); color: var(--primary); }
   .note-chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .nchip {
     min-width: 40px; padding: 2px 10px; border-radius: 999px; text-align: center;
@@ -361,7 +362,7 @@
     </div>
     <p class="pass" id="pass-box"></p>
     <div class="panel" id="practice-panel">
-      <label class="field-label">더 연습할 곳</label>
+      <label class="field-label">더 연습할 음</label>
       <div id="practice-list"></div>
     </div>
     <div class="gap"></div>
@@ -389,6 +390,7 @@
 
 </main>
 
+<script src="config.js"></script>
 <script>
   /* ================= 조절값 (시험하면서 바꿀 수 있어요) ================= */
   var STABLE_MS = 200;        // 같은 음이 이만큼 이어지면 한 음으로 판단
@@ -407,10 +409,12 @@
 
   /* ================= GAS 연결 ================= */
   // GAS 웹앱 주소(끝이 /exec)를 따옴표 안에 넣으세요
-  var GAS_URL = 'https://script.google.com/macros/s/AKfycbwoYvwYLFDPZxU1XHjVbtsasr1VR9oSuLsW3nyWtiHyqrTEpzvVxxKAcb0J9mTdcmx-CQ/exec';
+  // GAS 웹앱 주소는 같은 저장소의 config.js 파일에 적습니다 (이 파일을 바꿔도 주소가 유지돼요)
+  var gasUrl = (typeof GAS_URL === 'string') ? GAS_URL.trim() : '';
+  function gasReady() { return gasUrl.indexOf('https://script.google.com/') === 0 && gasUrl.indexOf('여기에_주소') === -1; }
 
   function callGas(body) {
-    return fetch(GAS_URL, { method: 'POST', body: JSON.stringify(body) })
+    return fetch(gasUrl, { method: 'POST', body: JSON.stringify(body) })
       .then(function (r) { return r.json(); })
       .then(function (res) {
         if (!res.ok) throw new Error(res.error || '알 수 없는 오류');
@@ -440,9 +444,9 @@
 
   /* ================= 1. 준비: 곡 불러오기 ================= */
   function loadSong() {
-    if (GAS_URL.indexOf('여기에_주소') > -1) {
+    if (!gasReady()) {
       $('song-title').textContent = '곡을 불러오지 못했어요';
-      setStatus('st-song', 'GAS_URL을 넣어주세요', 'err');
+      setStatus('st-song', 'config.js에 GAS 주소를 넣어주세요', 'err');
       return;
     }
     callGas({ action: 'getSong' })
@@ -1042,113 +1046,74 @@
   var result = null;
   function isProblem(a) { return !a.ok || (a.fingerWrong && a.fingerWrong.length) || (a.rhythm && a.rhythm !== 'ok'); }
 
-  /* 더 연습할 곳 찾기: 틀린 음이 모인 구간과 자주 틀린 음 */
+  /* 더 연습할 음: 여러 번 틀린 음만 골라서, 어떻게 불면 되는지 간단히 */
+  var PRACTICE_MIN_WRONG = 2;   // 이 횟수 이상 틀린 음만 보여줌
+  var PRACTICE_MAX = 4;         // 최대 몇 개까지 보여줄지
+
   function findPractice() {
-    var total = song.length;
-    var probs = [];
-    for (var i = 0; i < total; i++) {
-      var a = attempts[i];
-      if (a && isProblem(a)) probs.push(i);
-    }
-
-    // 2음 이내로 붙어 있는 틀린 음은 한 구간으로 묶음
-    var ranges = [];
-    probs.forEach(function (i) {
-      var last = ranges[ranges.length - 1];
-      if (last && i - last.end <= 2) last.end = i; else ranges.push({ start: i, end: i });
-    });
-    ranges.forEach(function (r) {
-      r.weight = 0;
-      for (var k = r.start; k <= r.end; k++) {
-        var a = attempts[k];
-        if (!a) continue;
-        r.weight += (a.ok ? 0 : 1) + (a.tries - 1) + (a.fingerWrong && a.fingerWrong.length ? 1 : 0) + (a.rhythm && a.rhythm !== 'ok' ? 1 : 0);
-      }
-      r.tip = rangeTip(r);
-    });
-    ranges = ranges.sort(function (a, b) { return b.weight - a.weight; }).slice(0, 3)
-                   .sort(function (a, b) { return a.start - b.start; });
-
-    // 자주 틀린 음
     var stat = {};
-    for (var j = 0; j < total; j++) {
-      var at = attempts[j];
-      if (!at) continue;
-      var n = song[j];
-      stat[n] = stat[n] || { name: n, times: 0, wrong: 0 };
-      stat[n].times++;
-      if (isProblem(at)) stat[n].wrong++;
-    }
-    var often = Object.keys(stat).map(function (k) { return stat[k]; })
-      .filter(function (x) { return x.wrong > 0; })
-      .sort(function (a, b) { return (b.wrong / b.times) - (a.wrong / a.times) || b.wrong - a.wrong; })
-      .slice(0, 3);
-
-    return { ranges: ranges, often: often, unfinished: idx < total ? idx : -1 };
-  }
-
-  // 구간에서 가장 도움이 될 연습 방법 한 줄
-  function rangeTip(r) {
-    var finger = null, octave = false, rhythm = null;
-    for (var k = r.start; k <= r.end; k++) {
-      var a = attempts[k];
-      if (!a) continue;
-      if (!finger && a.fingerWrong && a.fingerWrong.length) {
-        var f = a.fingerWrong[0];
-        finger = '\'' + a.expected + '\'에서 ' + f.finger + ' ' + (f.down ? '내리기' : '들기');
-      }
-      a.wrongMidis.forEach(function (m) { if (Math.abs(m - NOTE_MIDI[a.expected]) === 12) octave = true; });
-      if (!rhythm && a.rhythm && a.rhythm !== 'ok') rhythm = a;
-    }
-    if (finger) return finger + '를 확인하며 천천히 불어 보세요.';
-    if (octave) return '높은 소리가 나면 숨을 약하게, 낮은 소리가 나면 조금 세게 불어 보세요.';
-    if (rhythm) return '\'' + rhythm.expected + '\'' + eulReul(rhythm.expected) + ' ' + (rhythm.rhythm === 'short' ? '더 길게' : '더 짧게') + ' 불어요. 게이지가 초록 칸에서 멈추도록 연습해 보세요.';
-    return '운지 그림을 보며 이 부분만 천천히 3번 불어 보세요.';
-  }
-
-  function chipsHtml(from, to, badSet) {
-    var html = '';
-    for (var i = from; i <= to; i++) html += '<span class="nchip' + (badSet[i] ? ' bad' : '') + '">' + song[i] + '</span>';
-    return html;
-  }
-
-  function renderPractice(p) {
-    var total = song.length, html = '';
-    var bad = {};
-    p.ranges.forEach(function (r) { for (var k = r.start; k <= r.end; k++) { var a = attempts[k]; if (a && isProblem(a)) bad[k] = true; } });
-
-    p.ranges.forEach(function (r) {
-      var from = Math.max(0, r.start - 1), to = Math.min(total - 1, r.end + 1);
-      html += '<div class="practice-item"><h3>' + (r.start === r.end ? (r.start + 1) + '번째 음' : (r.start + 1) + '~' + (r.end + 1) + '번째 음') + '</h3>' +
-        '<div class="note-chips">' + chipsHtml(from, to, bad) + '</div><p>' + r.tip + '</p></div>';
+    attempts.forEach(function (a) {
+      if (!a || !a.wrongMidis.length) return;
+      var n = a.expected, target = NOTE_MIDI[n];
+      var st = stat[n] = stat[n] || { name: n, wrong: 0, high: 0, low: 0, octUp: 0, octDown: 0, fingers: {} };
+      a.wrongMidis.forEach(function (m) {
+        st.wrong++;
+        if (m - target === 12) st.octUp++;
+        else if (m - target === -12) st.octDown++;
+        else if (m > target) st.high++;
+        else st.low++;
+      });
+      (a.fingerWrong || []).forEach(function (fw) {
+        var key = fw.finger + (fw.down ? ' 내리기' : ' 들기');
+        st.fingers[key] = (st.fingers[key] || 0) + 1;
+      });
     });
-
-    if (p.unfinished >= 0) {
-      var end = Math.min(total - 1, p.unfinished + 5);
-      html += '<div class="practice-item"><h3>끝까지 못 간 곳 (' + (p.unfinished + 1) + '번째 음부터)</h3>' +
-        '<div class="note-chips">' + chipsHtml(p.unfinished, end, {}) + (end < total - 1 ? '<span class="nchip more">…</span>' : '') + '</div>' +
-        '<p>이 부분부터 이어서 연습해 보세요.</p></div>';
-    }
-
-    if (p.often.length) {
-      html += '<div class="often"><span class="often-title">자주 틀린 음</span><div class="note-chips">' +
-        p.often.map(function (o) { return '<span class="nchip bad">' + o.name + ' ' + o.wrong + '/' + o.times + '</span>'; }).join('') + '</div></div>';
-    }
-
-    if (!html) html = '<p class="practice-none">더 연습할 곳이 없어요. 아주 잘했어요!</p>';
-    $('practice-list').innerHTML = html;
+    return Object.keys(stat).map(function (k) { return stat[k]; })
+      .filter(function (x) { return x.wrong >= PRACTICE_MIN_WRONG; })
+      .sort(function (a, b) { return b.wrong - a.wrong; })
+      .slice(0, PRACTICE_MAX);
   }
 
-  function practiceLines(p) {
-    var lines = [];
-    if (p.ranges.length) {
-      lines.push('더 연습할 곳: ' + p.ranges.map(function (r) {
-        var notes = song.slice(r.start, r.end + 1).join(' ');
-        return (r.start === r.end ? (r.start + 1) + '번째' : (r.start + 1) + '~' + (r.end + 1) + '번째') + '(' + notes + ')';
-      }).join(', '));
+  // 막는 손가락을 말로: "왼손 엄지·검지·중지 + 오른손 검지"
+  function holdWords(n) {
+    var f = fingering[n] || [], left = [], right = [];
+    if (thumbs[n]) left.push('엄지');
+    ['검지', '중지', '약지'].forEach(function (w, i) { if (f[i]) left.push(w); });
+    ['검지', '중지', '약지', '새끼'].forEach(function (w, i) { if (f[i + 3]) right.push(w); });
+    var parts = [];
+    if (left.length) parts.push('왼손 ' + left.join('·'));
+    if (right.length) parts.push('오른손 ' + right.join('·'));
+    return parts.length ? parts.join(' + ') : '구멍을 모두 열어요';
+  }
+
+  function noteTip(st) {
+    var tip = '';
+    var fingerKeys = Object.keys(st.fingers).sort(function (a, b) { return st.fingers[b] - st.fingers[a]; });
+    if (fingerKeys.length) tip = fingerKeys[0] + '를 확인해요.';
+    else if (st.octUp >= st.octDown && st.octUp >= st.high && st.octUp >= st.low && st.octUp) tip = '한 옥타브 높게 났어요. 숨을 약하고 부드럽게 불어요.';
+    else if (st.octDown >= st.high && st.octDown >= st.low && st.octDown) tip = '한 옥타브 낮게 났어요. 숨을 조금 더 세게 불어요.';
+    else if (st.high >= st.low) tip = '소리가 높게 났어요. 손가락 끝으로 구멍을 꼭 막아요.';
+    else tip = '소리가 낮게 났어요. 들어야 할 손가락이 내려가 있지 않은지 봐요.';
+    return tip;
+  }
+
+  function renderPractice(list) {
+    if (!list.length) {
+      $('practice-list').innerHTML = '<p class="practice-none">여러 번 틀린 음이 없어요. 아주 잘했어요!</p>';
+      return;
     }
-    if (p.often.length) lines.push('자주 틀린 음: ' + p.often.map(function (o) { return o.name + '(' + o.wrong + '/' + o.times + ')'; }).join(', '));
-    return lines;
+    $('practice-list').innerHTML = list.map(function (st) {
+      return '<div class="practice-item">' +
+        '<h3><span class="nchip bad">' + st.name + '</span> ' + st.wrong + '번 틀렸어요</h3>' +
+        '<p><b>운지:</b> ' + holdWords(st.name) + '</p>' +
+        '<p>' + noteTip(st) + '</p>' +
+      '</div>';
+    }).join('');
+  }
+
+  function practiceLines(list) {
+    if (!list.length) return [];
+    return ['더 연습할 음: ' + list.map(function (st) { return st.name + '(' + st.wrong + '번 틀림) - ' + noteTip(st); }).join(' / ')];
   }
 
   function showResult() {
@@ -1281,8 +1246,8 @@
   $('btn-retry').addEventListener('click', begin);
   $('btn-again').addEventListener('click', function () { show('sec-ready'); });
   function goFeedback() {
-    if (GAS_URL.indexOf('여기에_주소') > -1) { alert('GAS_URL을 먼저 넣어주세요.'); return; }
-    location.href = GAS_URL;
+    if (!gasReady()) { alert('config.js에 GAS 주소를 먼저 넣어주세요.'); return; }
+    location.href = gasUrl;
   }
   $('btn-go-feedback').addEventListener('click', goFeedback);
   $('btn-my-feedback').addEventListener('click', goFeedback);
