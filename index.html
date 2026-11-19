@@ -126,13 +126,14 @@
   }
   .top-bar {
     position: absolute; left: 10px; right: 10px; top: 10px;
-    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    display: flex; justify-content: flex-end; align-items: center; gap: 8px;
   }
   .chip {
     padding: 6px 16px; border-radius: 999px; background: rgba(43,29,20,.72); color: #FFF7E6;
     font-family: var(--font-cute); font-size: 23px;
   }
   .chip em { font-style: normal; color: var(--accent); font-size: 34px; }
+  #count { padding: 6px 12px; font-size: 17px; }
   .big-note {
     position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
     min-width: 180px; padding: 6px 24px; border-radius: 24px; text-align: center;
@@ -157,10 +158,18 @@
   .coach em { display: block; font-style: normal; font-size: 19px; margin-top: 4px; color: #FFE7A3; }
   .coach em:empty { display: none; }
   .beat {
+    display: flex; align-items: center; gap: 12px;
     margin-top: 8px;
-    padding: 8px 14px 10px; border-radius: 14px; background: #2B1D14; color: #FFF7E6;
+    padding: 8px 14px 10px 10px; border-radius: 14px; background: #2B1D14; color: #FFF7E6;
     font-family: var(--font-cute);
   }
+  .beat-next {
+    flex-shrink: 0; min-width: 76px; padding-right: 12px; text-align: center;
+    border-right: 1px solid rgba(255,247,230,.25);
+  }
+  .beat-next span { display: block; font-size: 16px; opacity: .85; }
+  .beat-next em { display: block; font-style: normal; font-size: 40px; line-height: 1.1; color: var(--accent); white-space: nowrap; }
+  .beat-main { flex: 1; min-width: 0; }
   .beat[hidden] { display: none; }
   .beat-label { display: flex; justify-content: space-between; font-size: 18px; margin-bottom: 6px; }
   .beat-track { position: relative; height: 22px; border-radius: 11px; background: rgba(255,255,255,.18); overflow: hidden; }
@@ -200,7 +209,12 @@
   .play-note { margin: 0 0 8px; text-align: center; color: var(--ink-soft); font-size: 17px; }
 
   /* 결과 */
-  .scores { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .scores { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .final-score { margin-bottom: 8px; padding: 10px 14px 12px; border-radius: 16px; text-align: center; background: var(--primary); color: var(--on-primary); }
+  .final-score span { display: block; font-family: var(--font-cute); font-size: 22px; opacity: .9; }
+  .final-score b { display: block; font-weight: 400; font-family: var(--font-cute); font-size: 76px; line-height: 1; }
+  .final-score small { font-size: 16px; opacity: .9; }
+  .score.main { border-color: var(--accent); border-width: 2px; }
   .pass { margin: 0 0 10px; padding: 12px 14px; border-radius: 14px; font-family: var(--font-cute); font-size: 21px; white-space: pre-wrap; }
   .pass.ok { background: var(--ok-bg); color: var(--ok); }
   .pass.no { background: var(--err-bg); color: var(--err); }
@@ -209,7 +223,7 @@
     padding: 10px 8px; text-align: center;
   }
   .score span { display: block; font-family: var(--font-cute); font-size: 22px; color: var(--ink-soft); }
-  .score b { display: block; font-weight: 400; font-family: var(--font-cute); font-size: 66px; line-height: 1.05; color: var(--primary); }
+  .score b { display: block; font-weight: 400; font-family: var(--font-cute); font-size: 44px; line-height: 1.05; color: var(--primary); }
   .score small { font-size: 16px; color: var(--ink-soft); }
   .practice-item { padding: 10px 12px; margin-top: 8px; border-radius: 12px; background: var(--field); border-left: 5px solid var(--accent); }
   .practice-item:first-child { margin-top: 0; }
@@ -300,7 +314,6 @@
       <canvas id="overlay"></canvas>
 
       <div class="top-bar">
-        <span class="chip">다음 음 <em id="next-note">–</em></span>
         <span class="chip" id="count">0 / 0</span>
       </div>
 
@@ -320,13 +333,16 @@
     </div>
 
     <div class="beat" id="beat" hidden>
-      <div class="beat-label"><span id="beat-note"></span><span id="beat-len"></span></div>
-      <div class="beat-track"><i class="beat-zone" id="beat-zone"></i><i class="beat-fill" id="beat-fill"></i></div>
-      <div class="beat-say" id="beat-say"></div>
+      <div class="beat-next"><span>다음 음</span><em id="next-note">–</em></div>
+      <div class="beat-main">
+        <div class="beat-label"><span id="beat-note"></span><span id="beat-len"></span></div>
+        <div class="beat-track" id="beat-track"><i class="beat-zone" id="beat-zone"></i><i class="beat-fill" id="beat-fill"></i></div>
+        <div class="beat-say" id="beat-say"></div>
+      </div>
     </div>
 
     <div class="progress"><i id="progress-bar"></i></div>
-    <p class="play-note" id="play-note">맞는 음을 내야 넘어가요. 5번 틀리면 다음 음으로 가요.</p>
+    <p class="play-note" id="play-note">맞는 음을 내야 넘어가요. 3번 틀리면 다음 음으로 가요.</p>
     <button class="btn line" id="btn-finish">끝내기</button>
   </section>
 
@@ -335,9 +351,13 @@
     <div class="head">
       <div class="title-row"><h1>연주 결과</h1></div>
     </div>
+    <div class="final-score">
+      <span>최종 점수</span><b id="score-final">0</b><small id="score-final-sub"></small>
+    </div>
     <div class="scores">
-      <div class="score"><span>음정</span><b id="score-pitch">0</b><small id="score-pitch-sub"></small></div>
-      <div class="score"><span>손가락</span><b id="score-finger">0</b><small id="score-finger-sub"></small></div>
+      <div class="score main"><span>음정</span><b id="score-pitch">0</b><small id="score-pitch-sub"></small></div>
+      <div class="score main"><span>시간</span><b id="score-time">0</b><small id="score-time-sub"></small></div>
+      <div class="score"><span>박자</span><b id="score-rhythm">0</b><small id="score-rhythm-sub"></small></div>
     </div>
     <p class="pass" id="pass-box"></p>
     <div class="panel" id="practice-panel">
@@ -374,7 +394,7 @@
   var STABLE_MS = 200;        // 같은 음이 이만큼 이어지면 한 음으로 판단
   var GAP_MS = 60;            // 이만큼 조용하면 음이 끊긴 것으로 판단 (같은 음 반복 구분)
   var DIP_RATIO = 0.45;       // 소리가 이 비율 아래로 줄었다가 다시 커지면 같은 음을 '다시 분' 것으로 판단
-  var MAX_TRIES = 5;          // 같은 자리에서 이만큼 틀리면 다음 음으로 넘어감
+  var MAX_TRIES = 3;          // 같은 자리에서 이만큼 틀리면 다음 음으로 넘어감
   var RHYTHM_MIN = 0.7;       // 박 길이의 70%보다 짧으면 '짧아요'
   var RHYTHM_MAX = 1.4;       // 박 길이의 140%보다 길면 '길어요'
   var MIN_RMS = 0.003;        // 아무리 조용한 곳이어도 이보다 작은 소리는 무시
@@ -409,6 +429,7 @@
 
   var song = [], fingering = {}, thumbs = {}, classes = [], selectedClass = '';
   var beats = [], bpm = 80, timeLimitSec = 0, passScore = 0;
+  var pitchWeight = 70, timeWeight = 30, targetMult = 2;
   var $ = function (id) { return document.getElementById(id); };
 
   function show(id) {
@@ -431,6 +452,9 @@
         bpm = Number(d.빠르기) || 80;
         timeLimitSec = Number(d.제한시간) || 0;
         passScore = Number(d.통과점수) || 0;
+        if (d.음정비율 != null) pitchWeight = Number(d.음정비율);
+        if (d.시간비율 != null) timeWeight = Number(d.시간비율);
+        if (d.목표배수 != null) targetMult = Number(d.목표배수) || 2;
         fingering = {}; thumbs = {};
         Object.keys(d.운지).forEach(function (k) {
           var code = d.운지[k];                 // 첫 글자: 왼손 엄지(뒤), 나머지 7글자: 정면 손가락
@@ -505,7 +529,7 @@
   var idx = 0, attempts = [];
   var cand = null, curMidi = null, silentSince = 0;
   var hold = null, segPeak = 0, dipped = false, dipAt = 0, tickN = 0, lastMidi = null;
-  var playStart = 0, timedOut = false, beatHideTimer = null, finishing = false;
+  var playStart = 0, playEnd = 0, timedOut = false, beatHideTimer = null, finishing = false;
   var fingerEnabled = false, calibSamples = [], baseline = null, fingerState = null, lastHandT = 0;
   var calibStart = 0, handsSeen = 0;
   var noiseSamples = [], silenceRms = 0.006;
@@ -525,7 +549,7 @@
 
   function resetRun() {
     idx = 0; attempts = []; hideCoach(); cand = null; curMidi = null; silentSince = 0;
-    hold = null; segPeak = 0; dipped = false; tickN = 0; lastMidi = null; timedOut = false; finishing = false; $('beat').hidden = true;
+    hold = null; segPeak = 0; dipped = false; tickN = 0; lastMidi = null; timedOut = false; finishing = false; playEnd = 0; $('beat').hidden = true;
     calibSamples = []; baseline = null; fingerState = null; videoBlob = null; chunks = [];
     updateHud(null);
   }
@@ -670,10 +694,20 @@
 
   /* 박 길이 재기 */
   function beatMs(i) { return (Number(beats[i]) || 1) * 60000 / bpm; }
+  // 게이지 전체 길이: 곡에서 가장 긴 음을 기준으로 모든 음이 같은 눈금을 씀 (0.5박·1박·1.5박 길이가 달라 보이게)
+  function fullMs() {
+    var maxBeats = Math.max.apply(null, beats.map(function (b) { return Number(b) || 1; }).concat([1]));
+    return maxBeats * 60000 / bpm * RHYTHM_MAX * 1.1;
+  }
 
   // 게이지를 i번째 음에 맞게 준비 (빈 게이지 + 초록 칸 위치)
   function setupBeat(i) {
-    var target = beatMs(i), full = target * 1.6;
+    var target = beatMs(i), full = fullMs();
+    // 0.5박마다 눈금선
+    var step = (30000 / bpm) / full * 100;
+    var track = $('beat-track');
+    track.style.backgroundImage = 'linear-gradient(to right, rgba(255,255,255,.45) 2px, transparent 2px)';
+    track.style.backgroundSize = step + '% 100%';
     $('beat-note').textContent = '\'' + song[i] + '\' 박 길이';
     $('beat-len').textContent = (Number(beats[i]) || 1) + '박';
     var z = $('beat-zone');
@@ -703,7 +737,7 @@
     if (!hold) return;
     var held = now - hold.start, ratio = held / hold.target;
     var fill = $('beat-fill');
-    fill.style.width = Math.min(100, held / (hold.target * 1.6) * 100) + '%';
+    fill.style.width = Math.min(100, held / fullMs() * 100) + '%';
     fill.className = 'beat-fill' + (ratio > RHYTHM_MAX ? ' over' : (ratio >= RHYTHM_MIN ? ' in' : ''));
     // 같은 음이 이어지는데 끊지 않고 계속 부는 경우
     if (ratio > RHYTHM_MAX && idx < song.length && song[idx] === song[hold.i]) {
@@ -722,12 +756,12 @@
       a.rhythm = ratio < RHYTHM_MIN ? 'short' : (ratio > RHYTHM_MAX ? 'long' : 'ok');
     }
     var fill = $('beat-fill');
-    fill.style.width = Math.min(100, dur / (hold.target * 1.6) * 100) + '%';
+    fill.style.width = Math.min(100, dur / fullMs() * 100) + '%';
     fill.className = 'beat-fill' + (ratio > RHYTHM_MAX ? ' over' : (ratio >= RHYTHM_MIN ? ' in' : ''));
     $('beat-say').textContent = ratio < RHYTHM_MIN ? '짧아요 ▶ 조금 더 길게' : (ratio > RHYTHM_MAX ? '길어요 ◀ 조금 더 짧게' : '박자 좋아요!');
     hold = null;
     beatHideTimer = setTimeout(previewBeat, 900); // 결과를 잠깐 보여준 뒤 다음 음 게이지로
-    if (idx >= song.length) setTimeout(finish, 600);
+    if (idx >= song.length) { playEnd = end; setTimeout(finish, 600); }
   }
 
   /* 제한시간 */
@@ -785,7 +819,7 @@
     coachTimer = setTimeout(hideCoach, 1600);
     clearTimeout(beatHideTimer);
     previewBeat();
-    if (idx >= song.length) setTimeout(finish, 900);
+    if (idx >= song.length) { playEnd = performance.now(); setTimeout(finish, 900); }
   }
 
   /* 틀렸을 때 화면 안내: 높고 낮음 + 손가락 */
@@ -977,6 +1011,7 @@
   function finish() {
     if (phase === 'idle' || finishing) return;
     finishing = true;
+    if (!playEnd) playEnd = performance.now();
     if (hold) endHoldSilently(performance.now());
     var done = function () { stopAll(); showResult(); };
     if (recorder && recorder.state !== 'inactive') {
@@ -997,6 +1032,11 @@
       a.rhythm = ratio < RHYTHM_MIN ? 'short' : (ratio > RHYTHM_MAX ? 'long' : 'ok');
     }
     hold = null;
+  }
+
+  function clock(ms) {
+    var sec = Math.round(ms / 1000);
+    return Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2);
   }
 
   var result = null;
@@ -1124,10 +1164,27 @@
 
     var pitchScore = total ? Math.round(firstOk / total * 100) : 0;
     var fingerScore = checked.length ? Math.round(fingerOk / checked.length * 100) : null;
-    var totalScore = pitchScore;   // 통과 판단: 음정 점수
+    var rhythmScore = Math.round(rhythmOk / total * 100);   // 박자 점수: 보여주고 저장만 함
     var finished = idx >= total && !timedOut;
 
-    var lines = [total + '개 음 중 ' + firstOk + '개를 한 번에 맞혔어요. 박자는 ' + rhythmOk + '개가 알맞았어요.'];
+    // 시간 점수: 목표 시간 안이면 100점, 제한시간까지 고르게 줄어 0점
+    var songMs = beats.reduce(function (sum, b) { return sum + (Number(b) || 1); }, 0) * 60000 / bpm;
+    var targetMs = songMs * targetMult;
+    var limitMs = timeLimitSec ? timeLimitSec * 1000 : targetMs * 2;
+    if (targetMs > limitMs) targetMs = limitMs;
+    var usedMs = Math.max(0, playEnd - playStart);
+    var timeScore;
+    if (!finished) timeScore = 0;
+    else if (usedMs <= targetMs) timeScore = 100;
+    else if (usedMs >= limitMs) timeScore = 0;
+    else timeScore = Math.round(100 * (limitMs - usedMs) / (limitMs - targetMs));
+
+    // 최종 점수: 음정과 시간을 비율대로 (박자·손가락은 반영하지 않음)
+    var totalScore = Math.round((pitchScore * pitchWeight + timeScore * timeWeight) / ((pitchWeight + timeWeight) || 1));
+
+    var lines = ['최종 점수 ' + totalScore + '점 (음정 ' + pitchScore + ' · 시간 ' + timeScore + ')',
+                 total + '개 음 중 ' + firstOk + '개를 한 번에 맞혔어요. 박자는 ' + rhythmOk + '개가 알맞았어요.',
+                 '걸린 시간 ' + clock(usedMs) + ' (목표 ' + clock(targetMs) + ')'];
     tried.filter(function (a) { return !a.ok; }).slice(0, 3).forEach(function (a) {
       var fixed = a.skipped ? ' (' + MAX_TRIES + '번 틀려서 넘어감)' : (a.no <= idx ? ' (' + a.tries + '번 만에 맞힘)' : '');
       lines.push(a.no + '번째 \'' + a.expected + '\': 처음에 \'' + a.played + '\' 소리가 났어요.' + fixed);
@@ -1141,7 +1198,7 @@
     });
     if (timedOut) lines.push('제한시간(' + timeLimitSec + '초) 안에 끝까지 불지 못했어요.');
     if (idx < total) lines.push((idx + 1) + '번째 음부터 ' + (total - idx) + '개는 끝까지 연주하지 못했어요.');
-    if (firstOk === total && rhythmOk === total && (fingerScore === null || fingerScore === 100)) lines.push('음정, 박자, 손가락이 모두 정확해요. 멋져요!');
+    if (firstOk === total && rhythmOk === total) lines.push('음정과 박자가 모두 정확해요. 멋져요!');
     var practice = findPractice();
     lines = lines.concat(practiceLines(practice));
     renderPractice(practice);
@@ -1149,18 +1206,22 @@
     // 제출할 수 있는지
     var reasons = [];
     if (!finished) reasons.push(timedOut ? '제한시간 안에 끝까지 불지 못했어요.' : '끝까지 불지 않았어요.');
-    if (passScore && totalScore < passScore) reasons.push('음정 점수가 ' + totalScore + '점이에요. ' + passScore + '점 이상이어야 해요.');
+    if (passScore && totalScore < passScore) reasons.push('최종 점수가 ' + totalScore + '점이에요. ' + passScore + '점 이상이어야 해요.');
     var canSubmit = reasons.length === 0;
 
     result = {
-      음정점수: pitchScore, 운지점수: fingerScore === null ? '' : fingerScore,
+      음정점수: pitchScore, 시간점수: timeScore, 최종점수: totalScore, 박자점수: rhythmScore,
       자동피드백: lines.join('\n'), 완주: finished
     };
 
     $('score-pitch').textContent = pitchScore;
     $('score-pitch-sub').textContent = '한 번에 ' + firstOk + '/' + total;
-    $('score-finger').textContent = fingerScore === null ? '–' : fingerScore;
-    $('score-finger-sub').textContent = fingerScore === null ? '확인 못함' : fingerOk + '/' + checked.length;
+    $('score-final').textContent = totalScore;
+    $('score-final-sub').textContent = '음정 ' + pitchWeight + '% + 시간 ' + timeWeight + '%';
+    $('score-time').textContent = timeScore;
+    $('score-time-sub').textContent = clock(usedMs) + ' (목표 ' + clock(targetMs) + ')';
+    $('score-rhythm').textContent = rhythmScore;
+    $('score-rhythm-sub').textContent = '알맞음 ' + rhythmOk + '/' + total;
     var pass = $('pass-box');
     pass.className = 'pass ' + (canSubmit ? 'ok' : 'no');
     pass.textContent = canSubmit ? '통과! 제출할 수 있어요.' : '아직 제출할 수 없어요.\n' + reasons.join('\n') + '\n다시 해 봐요!';
@@ -1197,8 +1258,10 @@
           이름: $('in-name').value.trim(),
           비밀번호: $('in-pw').value.trim(),
           음정점수: result.음정점수,
+          시간점수: result.시간점수,
+          최종점수: result.최종점수,
+          박자점수: result.박자점수,
           완주: result.완주,
-          운지점수: result.운지점수,
           자동피드백: result.자동피드백,
           영상: b64,
           영상종류: videoBlob ? videoBlob.type.split(';')[0] : ''
