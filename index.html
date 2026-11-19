@@ -269,8 +269,8 @@
       <input type="text" id="in-name" placeholder="예: 김청평" autocomplete="off">
       <div class="gap"></div>
       <label class="field-label" for="in-pw">비밀번호</label>
-      <input type="password" id="in-pw" placeholder="4자 이상" autocomplete="off">
-      <p class="hint">내 피드백을 볼 때 필요해요. 다른 사이트에서 쓰는 비밀번호는 쓰지 마세요.</p>
+      <input type="password" id="in-pw" placeholder="생일 4자리 (예: 0315)" inputmode="numeric" autocomplete="off">
+      <p class="hint">내 생일의 월·일 4자리를 써요.<br>예: 3월 15일 → 0315<br>지난 피드백을 볼 때도 같은 번호를 써요.</p>
     </div>
 
     <div class="gap"></div>
@@ -326,7 +326,7 @@
     </div>
 
     <div class="progress"><i id="progress-bar"></i></div>
-    <p class="play-note" id="play-note">맞는 음을 내야 다음 음으로 넘어가요.</p>
+    <p class="play-note" id="play-note">맞는 음을 내야 넘어가요. 5번 틀리면 다음 음으로 가요.</p>
     <button class="btn line" id="btn-finish">끝내기</button>
   </section>
 
@@ -375,6 +375,7 @@
   var STABLE_MS = 200;        // 같은 음이 이만큼 이어지면 한 음으로 판단
   var GAP_MS = 60;            // 이만큼 조용하면 음이 끊긴 것으로 판단 (같은 음 반복 구분)
   var DIP_RATIO = 0.45;       // 소리가 이 비율 아래로 줄었다가 다시 커지면 같은 음을 '다시 분' 것으로 판단
+  var MAX_TRIES = 5;          // 같은 자리에서 이만큼 틀리면 다음 음으로 넘어감
   var RHYTHM_MIN = 0.7;       // 박 길이의 70%보다 짧으면 '짧아요'
   var RHYTHM_MAX = 1.4;       // 박 길이의 140%보다 길면 '길어요'
   var MIN_RMS = 0.003;        // 아무리 조용한 곳이어도 이보다 작은 소리는 무시
@@ -387,7 +388,7 @@
 
   /* ================= GAS 연결 ================= */
   // GAS 웹앱 주소(끝이 /exec)를 따옴표 안에 넣으세요
-  var GAS_URL = 'https://script.google.com/macros/s/AKfycbwoYvwYLFDPZxU1XHjVbtsasr1VR9oSuLsW3nyWtiHyqrTEpzvVxxKAcb0J9mTdcmx-CQ/exec';
+  var GAS_URL = 'https://script.google.com/macros/s/여기에_주소/exec';
 
   function callGas(body) {
     return fetch(GAS_URL, { method: 'POST', body: JSON.stringify(body) })
@@ -604,6 +605,7 @@
     setSilenceFromNoise();
     phase = 'play';
     playStart = performance.now();
+    previewBeat();
     $('calib').hidden = true;
     updateHud(null);
     {
@@ -670,17 +672,32 @@
   /* 박 길이 재기 */
   function beatMs(i) { return (Number(beats[i]) || 1) * 60000 / bpm; }
 
+  // 게이지를 i번째 음에 맞게 준비 (빈 게이지 + 초록 칸 위치)
+  function setupBeat(i) {
+    var target = beatMs(i), full = target * 1.6;
+    $('beat-note').textContent = '\'' + song[i] + '\' 박 길이';
+    $('beat-len').textContent = (Number(beats[i]) || 1) + '박';
+    var z = $('beat-zone');
+    z.style.left = (target * RHYTHM_MIN / full * 100) + '%';
+    z.style.width = (target * (RHYTHM_MAX - RHYTHM_MIN) / full * 100) + '%';
+    var fill = $('beat-fill');
+    fill.style.width = '0%';
+    fill.className = 'beat-fill';
+    $('beat').hidden = false;
+  }
+
+  // 다음에 불 음의 게이지를 미리 보여줌 (항상 화면에 보이게)
+  function previewBeat() {
+    if (hold || idx >= song.length) return;
+    setupBeat(idx);
+    $('beat-say').textContent = '소리를 내면 게이지가 차요';
+  }
+
   function startHold(i, start) {
     hold = { i: i, start: start, target: beatMs(i) };
     clearTimeout(beatHideTimer);
-    $('beat-note').textContent = '\'' + song[i] + '\' 박 길이';
-    $('beat-len').textContent = (Number(beats[i]) || 1) + '박';
-    var full = hold.target * 1.6;
-    var z = $('beat-zone');
-    z.style.left = (hold.target * RHYTHM_MIN / full * 100) + '%';
-    z.style.width = (hold.target * (RHYTHM_MAX - RHYTHM_MIN) / full * 100) + '%';
+    setupBeat(i);
     $('beat-say').textContent = '';
-    $('beat').hidden = false;
   }
 
   function drawHold(now) {
@@ -710,7 +727,7 @@
     fill.className = 'beat-fill' + (ratio > RHYTHM_MAX ? ' over' : (ratio >= RHYTHM_MIN ? ' in' : ''));
     $('beat-say').textContent = ratio < RHYTHM_MIN ? '짧아요 ▶ 조금 더 길게' : (ratio > RHYTHM_MAX ? '길어요 ◀ 조금 더 짧게' : '박자 좋아요!');
     hold = null;
-    beatHideTimer = setTimeout(function () { if (!hold) $('beat').hidden = true; }, 900);
+    beatHideTimer = setTimeout(previewBeat, 900); // 결과를 잠깐 보여준 뒤 다음 음 게이지로
     if (idx >= song.length) setTimeout(finish, 600);
   }
 
@@ -751,13 +768,31 @@
       hideCoach();
       startHold(idx, onset || performance.now());
       idx++;
+    } else if (attempts[idx].wrongMidis.length >= MAX_TRIES) {
+      skipNote(expected);
     } else {
       showCoach(expected, midi);
     }
   }
 
+  function skipNote(expected) {
+    attempts[idx].skipped = true;
+    idx++;
+    $('coach-main').textContent = '\'' + expected + '\'' + eulReul(expected) + ' 넘어가요';
+    $('coach-how').textContent = MAX_TRIES + '번 틀려서 다음 음으로 가요. 나중에 다시 연습해요';
+    $('coach-finger').textContent = '';
+    $('coach').hidden = false;
+    clearTimeout(coachTimer);
+    coachTimer = setTimeout(hideCoach, 1600);
+    clearTimeout(beatHideTimer);
+    previewBeat();
+    if (idx >= song.length) setTimeout(finish, 900);
+  }
+
   /* 틀렸을 때 화면 안내: 높고 낮음 + 손가락 */
+  var coachTimer = null;
   function showCoach(expected, midi) {
+    clearTimeout(coachTimer);
     var target = NOTE_MIDI[expected];
     var diff = midi - target;
     var how;
@@ -1096,7 +1131,7 @@
 
     var lines = [total + '개 음 중 ' + firstOk + '개를 한 번에 맞혔어요. 박자는 ' + rhythmOk + '개가 알맞았어요.'];
     tried.filter(function (a) { return !a.ok; }).slice(0, 3).forEach(function (a) {
-      var fixed = a.no <= idx ? ' (' + a.tries + '번 만에 맞힘)' : '';
+      var fixed = a.skipped ? ' (' + MAX_TRIES + '번 틀려서 넘어감)' : (a.no <= idx ? ' (' + a.tries + '번 만에 맞힘)' : '');
       lines.push(a.no + '번째 \'' + a.expected + '\': 처음에 \'' + a.played + '\' 소리가 났어요.' + fixed);
     });
     timed.filter(function (a) { return a.rhythm !== 'ok'; }).slice(0, 3).forEach(function (a) {
