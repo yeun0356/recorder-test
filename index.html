@@ -364,12 +364,7 @@
     <div class="panel" id="practice-panel">
       <label class="field-label">더 연습할 음</label>
       <div id="practice-list"></div>
-    </div>
-    <div class="gap"></div>
-    <div class="panel">
-      <label class="field-label">자동 피드백</label>
-      <p class="auto-fb" id="auto-fb"></p>
-      <p class="hint">선생님이 확인한 뒤 '내 피드백'에서 볼 수 있어요.</p>
+      <p class="hint">제출하면 선생님이 확인한 뒤 '내 피드백'에서 볼 수 있어요.</p>
     </div>
     <div class="gap"></div>
     <button class="btn" id="btn-submit">제출</button>
@@ -1212,7 +1207,6 @@
     pass.className = 'pass ' + (canSubmit ? 'ok' : 'no');
     pass.textContent = canSubmit ? '통과! 제출할 수 있어요.' : '아직 제출할 수 없어요.\n' + reasons.join('\n') + '\n다시 해 봐요!';
     $('btn-submit').hidden = !canSubmit;
-    $('auto-fb').textContent = result.자동피드백;
     $('msg-result').textContent = '';
     show('sec-result');
   }
